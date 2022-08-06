@@ -1,0 +1,24 @@
+<html>
+    <head>
+        <title>Journeys</title>
+    </head>
+    <body>
+        <h1>Journeys</h1>
+        <table>
+            <tr>
+                <th>Departure station</th>
+                <th>Return station</th>
+                <th>Distance (kilometers)</th>
+                <th>Duration (minutes)</th>
+            </tr>
+            {% for journey in journeys %}
+            <tr>
+                <td>{{journey['departure_station']}}</td>
+                <td>{{journey['return_station']}}</td>
+                <td>{{journey['distance']}}</td>
+                <td>{{journey['duration']}}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </body>
+</html>
