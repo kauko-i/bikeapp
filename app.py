@@ -8,7 +8,7 @@ ALLOWED_EXTENSIONS = ['csv']
 JOURNEY_HEADER = 'Departure,Return,Departure station id,Departure station name,Return station id,Return station name,Covered distance (m),Duration (sec.)\n'
 STATION_HEADER = 'FID,ID,Nimi,Namn,Name,Osoite,Adress,Kaupunki,Stad,Operaattor,Kapasiteet,x,y\n'
 DATABASE_URL = os.environ['DATABASE_URL']
-JOURNEY_LIMIT = 100
+JOURNEY_LIMIT = 1000
 METERS_IN_KILOMETER = 1000
 SECONDS_IN_MINUTE = 60
 
@@ -112,6 +112,19 @@ def journeys():
     row_list = [{'departure_station':str(row[0]),'return_station':str(row[1]),'distance':str(float(row[2])/METERS_IN_KILOMETER),
     'duration':str(float(row[3])/SECONDS_IN_MINUTE)} for row in rows]
     return render_template('journeys.html', journeys=row_list)
+
+@app.route('/stations')
+def stations():
+    con = psycopg2.connect(DATABASE_URL, sslmode='require')
+    cur = con.cursor()
+    cur.execute('SELECT * FROM stations')
+    rows = cur.fetchall()
+    cur.close()
+    con.close()
+    row_list = [{'id':str(row[0]),'nimi':str(row[1]),'namn':str(row[2]),'name':str(row[3]),'address':str(row[4]),'adress':str(row[5]),
+    'city':str(row[6]),'stad':str(row[7]),'operator':str(row[8]),'capacity':int(row[9]),'lat':round(float(row[10]),5),'lon':round(float(row[11]),5)}
+    for row in rows]
+    return render_template('stations.html', stations=row_list)
 
 @app.route('/')
 def index():
