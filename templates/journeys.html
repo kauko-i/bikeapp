@@ -4,6 +4,12 @@
     </head>
     <body>
         <h1>Journeys</h1>
+        {% if page != 0 %}
+            <a href="/journeys/?page={{page - 1}}">&lt;&lt;Former page</a>
+        {% endif %}
+        {% if not last %}
+            <a href="/journeys/?page={{page + 1}}">Next page&gt;&gt;</a>
+        {% endif %}
         <table>
             <tr>
                 <th>Departure station</th>

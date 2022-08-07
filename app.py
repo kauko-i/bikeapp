@@ -98,6 +98,10 @@ def upload():
 
 @app.route('/journeys/')
 def journeys():
+    page = request.args.get('page')
+    if not page:
+        page = 0
+    page = int(page)
     con = psycopg2.connect(DATABASE_URL, sslmode='require')
     cur = con.cursor()
     cur.execute('''
@@ -105,14 +109,19 @@ def journeys():
     FROM journeys
     JOIN stations departures ON journeys.departure_station = departures.id
     JOIN stations returns ON journeys.return_station = returns.id
-    LIMIT %s
-    ''',(JOURNEY_LIMIT,))
+    ORDER BY departures.name, returns.name, distance, duration LIMIT %s OFFSET %s
+    ''',(JOURNEY_LIMIT + 1,JOURNEY_LIMIT*page))
     rows = cur.fetchall()
     cur.close()
     con.close()
+    last_page = False
+    if len(rows) < JOURNEY_LIMIT + 1:
+        last_page = True
+    else:
+        rows = rows[:-1]
     row_list = [{'departure_station':str(row[0]),'return_station':str(row[1]),'distance':str(float(row[2])/METERS_IN_KILOMETER),
     'duration':str(float(row[3])/SECONDS_IN_MINUTE)} for row in rows]
-    return render_template('journeys.html', journeys=row_list)
+    return render_template('journeys.html', journeys=row_list, page=page, last=last_page)
 
 @app.route('/stations/')
 @app.route('/stations/<id>/')
