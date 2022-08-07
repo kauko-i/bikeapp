@@ -11,6 +11,9 @@ DATABASE_URL = os.environ['DATABASE_URL']
 JOURNEY_LIMIT = 1000
 METERS_IN_KILOMETER = 1000
 SECONDS_IN_MINUTE = 60
+COORDINATE_DECIMAL_ROUND = 5
+JOURNEY_MIN_DURATION = 10
+JOURNEY_MIN_DISTANCE = 10
 
 def allowed_filename(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -50,7 +53,7 @@ def upload():
                         duration = float(rowdata[7])
                     except ValueError:
                         continue
-                    if distance < 10 or duration < 10:
+                    if distance < JOURNEY_MIN_DISTANCE or duration < JOURNEY_MIN_DURATION:
                         continue
                     cur.execute('''INSERT INTO journeys(departure_time,return_time,departure_station,return_station,distance,duration)
                     VALUES(%s,%s,%s,%s,%s,%s)''', (departure_time,arrival_time,departure_station,arrival_station,distance,duration,))
@@ -113,18 +116,32 @@ def journeys():
     'duration':str(float(row[3])/SECONDS_IN_MINUTE)} for row in rows]
     return render_template('journeys.html', journeys=row_list)
 
-@app.route('/stations')
-def stations():
+@app.route('/stations/')
+@app.route('/stations/<id>/')
+def stations(id=None):
     con = psycopg2.connect(DATABASE_URL, sslmode='require')
     cur = con.cursor()
-    cur.execute('SELECT * FROM stations')
+    if not id:
+        cur.execute('SELECT * FROM stations')
+        rows = cur.fetchall()
+        cur.close()
+        con.close()
+        row_list = [{'id':str(row[0]),'nimi':str(row[1]),'namn':str(row[2]),'name':str(row[3]),'address':str(row[4]),'adress':str(row[5]),
+        'city':str(row[6]),'stad':str(row[7]),'operator':str(row[8]),'capacity':int(row[9]),
+        'lat':round(float(row[10]),COORDINATE_DECIMAL_ROUND),'lon':round(float(row[11]),COORDINATE_DECIMAL_ROUND)}
+        for row in rows]
+        return render_template('stations.html', stations=row_list)
+    cur.execute('''SELECT name, address,
+    COUNT(CASE WHEN journeys.departure_station = %(id)s THEN 1 END), COUNT(CASE WHEN journeys.return_station = %(id)s THEN 1 END)
+    FROM stations, journeys
+    WHERE stations.id = %(id)s
+    GROUP BY stations.id''',({'id':id}))
     rows = cur.fetchall()
     cur.close()
     con.close()
-    row_list = [{'id':str(row[0]),'nimi':str(row[1]),'namn':str(row[2]),'name':str(row[3]),'address':str(row[4]),'adress':str(row[5]),
-    'city':str(row[6]),'stad':str(row[7]),'operator':str(row[8]),'capacity':int(row[9]),'lat':round(float(row[10]),5),'lon':round(float(row[11]),5)}
-    for row in rows]
-    return render_template('stations.html', stations=row_list)
+    if len(rows) == 0:
+        return Response('No station found with id %s' % id)
+    return render_template('station.html',name=rows[0][0], address=rows[0][1], starting=rows[0][2], ending=rows[0][3])
 
 @app.route('/')
 def index():
