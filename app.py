@@ -6,6 +6,7 @@ import psycopg2
 from psycopg2 import sql
 from urllib.parse import urlencode
 
+# Constraints related to the app.
 ALLOWED_EXTENSIONS = ['csv']
 JOURNEY_HEADER = 'Departure,Return,Departure station id,Departure station name,Return station id,Return station name,Covered distance (m),Duration (sec.)\n'
 STATION_HEADER = 'FID,ID,Nimi,Namn,Name,Osoite,Adress,Kaupunki,Stad,Operaattor,Kapasiteet,x,y\n'
@@ -17,12 +18,16 @@ COORDINATE_DECIMAL_ROUND = 5
 JOURNEY_MIN_DURATION = 10
 JOURNEY_MIN_DISTANCE = 10
 
+# A function to validate the name of an uploaded file.
 def allowed_filename(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 app = Flask(__name__)
 app.secret_key = 'secret'
 
+# A general function to be used to insert data from CSV files to a database.
+# The parameters are the file object, the expected header row, and the function to be applied to each of the other rows.
+# Returns True if upload was successful, otherwise False.
 def uploadfile(file, header, rowoperation):
     if file.filename == '' or not allowed_filename(file.filename):
         return False
@@ -53,6 +58,7 @@ def upload():
     if request.method == 'POST' and (journeys or stations):
         con = psycopg2.connect(DATABASE_URL, sslmode='require')
         cur = con.cursor()
+        # Determines how to do the SQL insert query based on a journey row on a CSV file.
         def save_journey_row(rowdata):
             try:
                 departure_time = parser.parse(rowdata[0])
@@ -71,6 +77,7 @@ def upload():
             return True
         if journeys and not uploadfile(journeys, JOURNEY_HEADER, save_journey_row):
             errors.append('The journey file is inaccurate')
+        # Determines how to do the SQL insert query based on a station row on a CSV file.
         def save_station_row(rowdata):
             try:
                 id = rowdata[1]
@@ -100,10 +107,9 @@ def upload():
 
 @app.route('/journeys/')
 def journeys():
+    # Read the URL parameters and set the default values if not passed.
     page = request.args.get('page')
-    if not page:
-        page = 0
-    page = int(page)
+    page = 0 if not page else int(page)
     departure = request.args.get('departure')
     departure = '' if not departure else departure
     arrival = request.args.get('return')
@@ -126,6 +132,7 @@ def journeys():
         direction = ''
     con = psycopg2.connect(DATABASE_URL, sslmode='require')
     cur = con.cursor()
+    # Query journeys from the database according to the URL parameters.
     cur.execute(sql.SQL('''SELECT departures.name, returns.name, distance, duration
     FROM journeys
     JOIN stations departures ON journeys.departure_station = departures.id
@@ -133,26 +140,33 @@ def journeys():
     WHERE (departures.name = %(departure)s OR %(departure)s = '') AND (returns.name = %(arrival)s OR %(arrival)s = '') AND
     (%(mindistance)s <= distance OR %(mindistance)s = -1) AND (distance <= %(maxdistance)s OR %(maxdistance)s = -1) AND
     (%(minduration)s <= duration OR %(minduration)s = -1) AND (duration <= %(maxduration)s OR %(maxduration)s = -1)
-    ORDER BY {order1} {direction}, {order2}, {order3}, {order4} LIMIT %(limit)s OFFSET %(offset)s
-    ''').format(order1=sql.SQL(order_params[0]),order2=sql.SQL(order_params[1]),
+    ORDER BY {order1} {direction}, {order2}, {order3}, {order4} LIMIT %(limit)s OFFSET %(offset)s''')
+    # The format function is safe with psycopg2.sql objects: https://www.psycopg.org/docs/sql.html
+    .format(order1=sql.SQL(order_params[0]),order2=sql.SQL(order_params[1]),
     order3=sql.SQL(order_params[2]),order4=sql.SQL(order_params[3]),direction=sql.SQL(direction)),
     {'departure':departure,'arrival':arrival,'mindistance':mindistance,'maxdistance':maxdistance,
     'minduration':minduration,'maxduration':maxduration,'limit':JOURNEY_LIMIT + 1,'offset':JOURNEY_LIMIT*page})
     rows = cur.fetchall()
     cur.close()
     con.close()
+    # The query searches for one row more than what's going to be displayed on a single page.
+    # A link to the next page is displayed if and only if such a row is found.
     last_page = False
     if len(rows) < JOURNEY_LIMIT + 1:
         last_page = True
     else:
         rows = rows[:-1]
+    # The journey data is transmitted to the tempalte as a list of dicts.
     row_list = [{'departure_station':str(row[0]),'return_station':str(row[1]),'distance':str(float(row[2])/METERS_IN_KILOMETER),
     'duration':str(float(row[3])/SECONDS_IN_MINUTE)} for row in rows]
+    # All URL parameters except page are intended to be sustained, but the page links require that the original page parameter is not repassed.
     query = dict(request.args)
     if 'page' in query:
         del query['page']
     return render_template('journeys.html', journeys=row_list, page=page, last=last_page, query=query, querystring=urlencode(query))
 
+# The same function is used for both the station list and the single station view.
+# If id is None, the whole list is displayed. Otherwise, a single station view is displayed according to the id.
 @app.route('/stations/')
 @app.route('/stations/<id>/')
 def stations(id=None):
