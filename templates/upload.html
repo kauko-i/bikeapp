@@ -11,5 +11,8 @@
         </br>
         <input type="submit" value="Upload file(s)" />
     </form>
+    {% for error in errors %}
+        <p class="error"><strong>Error:</strong> {{ error }}</p>
+    {% endfor %}
     </body>
 </html>

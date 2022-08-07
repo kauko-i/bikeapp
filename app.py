@@ -21,84 +21,82 @@ def allowed_filename(filename):
 app = Flask(__name__)
 app.secret_key = 'secret'
 
-@app.route('/upload', methods=['GET','POST'])
+def uploadfile(file, header, rowoperation):
+    if file.filename == '' or not allowed_filename(file.filename):
+        return False
+    secure_name = secure_filename(file.filename)
+    file.save(secure_name)
+    with open(secure_name, 'r', encoding='utf-8-sig') as file:
+        line = file.readline()
+        if line != header:
+            os.remove(secure_name)
+            return False
+        linesize = len(header.split(','))
+        while True:
+            rowdata = file.readline().replace('\n', '')
+            if not rowdata:
+                break
+            rowdata = rowdata.split(',')
+            if len(rowdata) != linesize:
+                continue
+            rowoperation(rowdata)
+    os.remove(secure_name)
+    return True
+
+@app.route('/upload/', methods=['GET','POST'])
 def upload():
-    if request.method == 'POST' and (request.files.get('journeys') or request.files.get('stations')):
-        journeys = request.files.get('journeys')
+    journeys = request.files.get('journeys')
+    stations = request.files.get('stations')
+    errors = []
+    if request.method == 'POST' and (journeys or stations):
         con = psycopg2.connect(DATABASE_URL, sslmode='require')
         cur = con.cursor()
-        if journeys.filename != '' and allowed_filename(journeys.filename):
-            secure_name = secure_filename(journeys.filename)
-            journeys.save(secure_name)
-            with open(secure_name, 'r', encoding='utf-8-sig') as file:
-                line = file.readline()
-                if line != JOURNEY_HEADER:
-                    return Response(render_template('upload.html'))
-                linesize = len(JOURNEY_HEADER.split(','))
-                while True:
-                    rowdata = file.readline().replace('\n', '')
-                    if not rowdata:
-                        break
-                    rowdata = rowdata.split(',')
-                    if len(rowdata) != linesize:
-                        continue
-                    try:
-                        departure_time = parser.parse(rowdata[0])
-                        arrival_time = parser.parse(rowdata[1])
-                        departure_station = rowdata[2]
-                        arrival_station = rowdata[4]
-                        distance = float(rowdata[6])
-                        # This seems to differ from the difference between the departure and arrival timestamps with a few seconds usually.
-                        # Concluded this should be used as the "ultimate source of truth", not the former.
-                        duration = float(rowdata[7])
-                    except ValueError:
-                        continue
-                    if distance < JOURNEY_MIN_DISTANCE or duration < JOURNEY_MIN_DURATION:
-                        continue
-                    cur.execute('''INSERT INTO journeys(departure_time,return_time,departure_station,return_station,distance,duration)
-                    VALUES(%s,%s,%s,%s,%s,%s)''', (departure_time,arrival_time,departure_station,arrival_station,distance,duration,))
-            os.remove(secure_name)
-        stations = request.files.get('stations')
-        if stations.filename != '' and allowed_filename(stations.filename):
-            secure_name = secure_filename(stations.filename)
-            stations.save(secure_name)
-            with open(secure_name, 'r', encoding='utf-8-sig') as file:
-                line = file.readline()
-                if line != STATION_HEADER:
-                    return Response(render_template('upload.html'))
-                linesize = len(STATION_HEADER.split(','))
-                while True:
-                    rowdata = file.readline().replace('\n', '')
-                    if not rowdata:
-                        break
-                    rowdata = rowdata.split(',')
-                    if len(rowdata) != linesize:
-                        continue
-                    try:
-                        id = rowdata[1]
-                        nimi = rowdata[2]
-                        namn = rowdata[3]
-                        name = rowdata[4]
-                        osoite = rowdata[5]
-                        adress = rowdata[6]
-                        kaupunki = rowdata[7]
-                        stad = rowdata[8]
-                        operator = rowdata[9]
-                        capacity = int(rowdata[10])
-                        lon = float(rowdata[11])
-                        lat = float(rowdata[12])
-                    except ValueError:
-                        continue
-                    cur.execute('''INSERT INTO stations(id,nimi,namn,name,osoite,adress,kaupunki,stad,operaattori,kapasiteetti,lat,lon)
-                    VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING''',
-                    (id,nimi,namn,name,osoite,adress,kaupunki,stad,operator,capacity,lat,lon),)
-            os.remove(secure_name)
+        def save_journey_row(rowdata):
+            try:
+                departure_time = parser.parse(rowdata[0])
+                arrival_time = parser.parse(rowdata[1])
+                departure_station = rowdata[2]
+                arrival_station = rowdata[4]
+                distance = float(rowdata[6])
+                # This seems to differ from the difference between the departure and arrival timestamps with a few seconds usually.
+                # Concluded this should be used as the "ultimate source of truth", not the former.
+                duration = float(rowdata[7])
+            except ValueError:
+                return False
+            if JOURNEY_MIN_DISTANCE <= distance and JOURNEY_MIN_DURATION <= duration:
+                cur.execute('''INSERT INTO journeys(departure_time,return_time,departure_station,return_station,distance,duration)
+                VALUES(%s,%s,%s,%s,%s,%s)''', (departure_time,arrival_time,departure_station,arrival_station,distance,duration,))
+            return True
+        if journeys and not uploadfile(journeys, JOURNEY_HEADER, save_journey_row):
+            errors.append('The journey file is inaccurate')
+        def save_station_row(rowdata):
+            try:
+                id = rowdata[1]
+                nimi = rowdata[2]
+                namn = rowdata[3]
+                name = rowdata[4]
+                osoite = rowdata[5]
+                adress = rowdata[6]
+                city = rowdata[7]
+                stad = rowdata[8]
+                operator = rowdata[9]
+                capacity = int(rowdata[10])
+                lon = float(rowdata[11])
+                lat = float(rowdata[12])
+            except ValueError:
+                return False
+            cur.execute('''INSERT INTO stations(id,nimi,namn,name,address,adress,city,stad,operator,capacity,lat,lon)
+            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING''',
+            (id,nimi,namn,name,osoite,adress,city,stad,operator,capacity,lat,lon),)
+            return True
+        if stations and not uploadfile(stations, STATION_HEADER, save_station_row):
+            errors.append('The station file is inaccurate')
         con.commit()
         cur.close()
         con.close()
-    return render_template('upload.html')
+    return render_template('upload.html', errors=errors)
 
-@app.route('/journeys')
+@app.route('/journeys/')
 def journeys():
     con = psycopg2.connect(DATABASE_URL, sslmode='require')
     cur = con.cursor()
