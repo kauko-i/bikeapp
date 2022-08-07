@@ -4,11 +4,23 @@
     </head>
     <body>
         <h1>Journeys</h1>
+        <h2>Filter journeys</h2>
+        <form action="" method="get">
+            <label>The departure station must be: <input name="departure" value="{{filters['departure']}}"></label>
+            <br>
+            <label>The return station must be: <input name="return" value="{{filters['return']}}"></label>
+            <br>
+            <label><input name="mindistance" type="number" step="0.001" value="{{filters['mindistance']}}"> kilometers &lt;= distance &lt;= <input name="maxdistance" type="number" step="0.001" value="{{filters['maxdistance']}}"> kilometers</label>
+            <br>
+            <label><input name="minduration" type="number" step="0.001" value="{{filters['minduration']}}"> minutes &lt;= duration &lt;= <input name="maxduration" type="number" step="0.001"  value="{{filters['maxduration']}}"> minutes</label>
+            <br>
+            <input type="submit" value="Apply filters">
+        </form>
         {% if page != 0 %}
-            <a href="/journeys/?page={{page - 1}}">&lt;&lt;Former page</a>
+            <a href="/journeys/?page={{page - 1}}&{{filterquery}}">&lt;&lt;Former page</a>
         {% endif %}
         {% if not last %}
-            <a href="/journeys/?page={{page + 1}}">Next page&gt;&gt;</a>
+            <a href="/journeys/?page={{page + 1}}&{{filterquery}}">Next page&gt;&gt;</a>
         {% endif %}
         <table>
             <tr>

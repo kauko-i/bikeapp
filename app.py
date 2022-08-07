@@ -3,6 +3,7 @@ import os
 from werkzeug.utils import secure_filename
 from dateutil import parser
 import psycopg2
+from urllib.parse import urlencode
 
 ALLOWED_EXTENSIONS = ['csv']
 JOURNEY_HEADER = 'Departure,Return,Departure station id,Departure station name,Return station id,Return station name,Covered distance (m),Duration (sec.)\n'
@@ -102,6 +103,18 @@ def journeys():
     if not page:
         page = 0
     page = int(page)
+    departure = request.args.get('departure')
+    departure = '' if not departure else departure
+    arrival = request.args.get('return')
+    arrival = '' if not arrival else arrival
+    mindistance = request.args.get('mindistance')
+    mindistance = -1 if not mindistance else float(mindistance)*METERS_IN_KILOMETER
+    maxdistance = request.args.get('maxdistance')
+    maxdistance = -1 if not maxdistance else float(maxdistance)*METERS_IN_KILOMETER
+    minduration = request.args.get('minduration')
+    minduration = -1 if not minduration else float(minduration)*SECONDS_IN_MINUTE
+    maxduration = request.args.get('maxduration')
+    maxduration = -1 if not maxduration else float(maxduration)*SECONDS_IN_MINUTE
     con = psycopg2.connect(DATABASE_URL, sslmode='require')
     cur = con.cursor()
     cur.execute('''
@@ -109,8 +122,12 @@ def journeys():
     FROM journeys
     JOIN stations departures ON journeys.departure_station = departures.id
     JOIN stations returns ON journeys.return_station = returns.id
-    ORDER BY departures.name, returns.name, distance, duration LIMIT %s OFFSET %s
-    ''',(JOURNEY_LIMIT + 1,JOURNEY_LIMIT*page))
+    WHERE (departures.name = %(departure)s OR %(departure)s = '') AND (returns.name = %(arrival)s OR %(arrival)s = '') AND
+    (%(mindistance)s <= distance OR %(mindistance)s = -1) AND (distance <= %(maxdistance)s OR %(maxdistance)s = -1) AND
+    (%(minduration)s <= duration OR %(minduration)s = -1) AND (duration <= %(maxduration)s OR %(maxduration)s = -1)
+    ORDER BY departures.name, returns.name, distance, duration LIMIT %(limit)s OFFSET %(offset)s
+    ''',{'departure':departure,'arrival':arrival,'mindistance':mindistance,'maxdistance':maxdistance,
+    'minduration':minduration,'maxduration':maxduration,'limit':JOURNEY_LIMIT + 1,'offset':JOURNEY_LIMIT*page})
     rows = cur.fetchall()
     cur.close()
     con.close()
@@ -121,7 +138,10 @@ def journeys():
         rows = rows[:-1]
     row_list = [{'departure_station':str(row[0]),'return_station':str(row[1]),'distance':str(float(row[2])/METERS_IN_KILOMETER),
     'duration':str(float(row[3])/SECONDS_IN_MINUTE)} for row in rows]
-    return render_template('journeys.html', journeys=row_list, page=page, last=last_page)
+    filterquery = dict(request.args)
+    if 'page' in filterquery:
+        del filterquery['page']
+    return render_template('journeys.html', journeys=row_list, page=page, last=last_page, filters=filterquery, filterquery=urlencode(filterquery))
 
 @app.route('/stations/')
 @app.route('/stations/<id>/')
