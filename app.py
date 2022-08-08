@@ -188,12 +188,25 @@ def stations(id=None):
     WHERE stations.id = %(id)s
     GROUP BY stations.id''',({'id':id}))
     rows = cur.fetchall()
+    cur.execute('''SELECT stations.name, COUNT(*) AS n
+    FROM journeys
+    JOIN stations ON stations.id = journeys.return_station
+    WHERE departure_station = %s
+    GROUP BY stations.id ORDER BY n DESC LIMIT 5''',(id,))
+    returns = list(map(lambda x: x[0], cur.fetchall()))
+    cur.execute('''SELECT stations.name, COUNT(*) AS n
+    FROM journeys
+    JOIN stations ON stations.id = journeys.departure_station
+    WHERE return_station = %s
+    GROUP BY stations.id ORDER BY n DESC LIMIT 5''',(id,))
+    departures = list(map(lambda x: x[0], cur.fetchall()))
     cur.close()
     con.close()
     if len(rows) == 0:
         return Response('No station found with id %s' % id)
     return render_template('station.html',name=rows[0][0], address=rows[0][1], starting=rows[0][2], ending=rows[0][3],
-    starting_distance=round(float(rows[0][4])/METERS_IN_KILOMETER, DECIMAL_ROUND), ending_distance=round(float(rows[0][5])/METERS_IN_KILOMETER, DECIMAL_ROUND))
+    starting_distance=round(float(rows[0][4])/METERS_IN_KILOMETER, DECIMAL_ROUND), ending_distance=round(float(rows[0][5])/METERS_IN_KILOMETER, DECIMAL_ROUND),
+    returns=returns, departures=departures)
 
 @app.route('/')
 def index():
