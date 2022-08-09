@@ -183,7 +183,8 @@ def stations(id=None):
         return render_template('stations.html', stations=row_list)
     cur.execute('''SELECT name, address,
     COUNT(CASE WHEN journeys.departure_station = %(id)s THEN 1 END), COUNT(CASE WHEN journeys.return_station = %(id)s THEN 1 END),
-    AVG(CASE WHEN journeys.departure_station = %(id)s THEN journeys.distance END), AVG(CASE WHEN journeys.return_station = %(id)s THEN journeys.distance END)
+    AVG(CASE WHEN journeys.departure_station = %(id)s THEN journeys.distance END), AVG(CASE WHEN journeys.return_station = %(id)s THEN journeys.distance END),
+    lat, lon
     FROM stations, journeys
     WHERE stations.id = %(id)s
     GROUP BY stations.id''',({'id':id}))
@@ -206,7 +207,7 @@ def stations(id=None):
         return Response('No station found with id %s' % id)
     return render_template('station.html',name=rows[0][0], address=rows[0][1], starting=rows[0][2], ending=rows[0][3],
     starting_distance=round(float(rows[0][4])/METERS_IN_KILOMETER, DECIMAL_ROUND), ending_distance=round(float(rows[0][5])/METERS_IN_KILOMETER, DECIMAL_ROUND),
-    returns=returns, departures=departures)
+    returns=returns, departures=departures, lat=rows[0][6], lon=rows[0][7])
 
 @app.route('/')
 def index():
