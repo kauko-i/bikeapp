@@ -5,6 +5,7 @@ from dateutil import parser
 import psycopg2
 from psycopg2 import sql
 from urllib.parse import urlencode
+import re
 
 # Constraints related to the app.
 ALLOWED_EXTENSIONS = ['csv']
@@ -17,6 +18,7 @@ SECONDS_IN_MINUTE = 60
 DECIMAL_ROUND = 5
 JOURNEY_MIN_DURATION = 10
 JOURNEY_MIN_DISTANCE = 10
+MONTH_PARAM = '^\d(\d)?-\d{4}$'
 
 # A function to validate the name of an uploaded file.
 def allowed_filename(filename):
@@ -181,33 +183,74 @@ def stations(id=None):
         'lat':round(float(row[10]),DECIMAL_ROUND),'lon':round(float(row[11]),DECIMAL_ROUND)}
         for row in rows]
         return render_template('stations.html', stations=row_list)
-    cur.execute('''SELECT name, address,
-    COUNT(CASE WHEN journeys.departure_station = %(id)s THEN 1 END), COUNT(CASE WHEN journeys.return_station = %(id)s THEN 1 END),
-    AVG(CASE WHEN journeys.departure_station = %(id)s THEN journeys.distance END), AVG(CASE WHEN journeys.return_station = %(id)s THEN journeys.distance END),
-    lat, lon
-    FROM stations, journeys
-    WHERE stations.id = %(id)s
-    GROUP BY stations.id''',({'id':id}))
+    departure = request.args.get('departure')
+    departure_year = 0
+    departure_month = 0
+    if departure != None and re.match(MONTH_PARAM, departure):
+        departure_split = departure.split('-')
+        departure_year = int(departure_split[1])
+        departure_month = int(departure_split[0])
+    return_t = request.args.get('return')
+    return_year = 0
+    return_month = 0
+    if return_t != None and re.match(MONTH_PARAM, return_t):
+        return_split = return_t.split('-')
+        return_year = int(return_split[1])
+        return_month = int(return_split[0])
+    cur.execute('''SELECT name, address, lat, lon
+    FROM stations
+    WHERE stations.id = %s''',(id,))
     rows = cur.fetchall()
+    if len(rows) == 0:
+        return Response('No station found with id %s' % id)
+    name = rows[0][0]
+    address = rows[0][1]
+    lat = rows[0][2]
+    lon = rows[0][3]
+    cur.execute('''SELECT COUNT(CASE WHEN journeys.departure_station = %(id)s THEN 1 END), COUNT(CASE WHEN journeys.return_station = %(id)s THEN 1 END),
+    AVG(CASE WHEN journeys.departure_station = %(id)s THEN journeys.distance END), AVG(CASE WHEN journeys.return_station = %(id)s THEN journeys.distance END)
+    FROM journeys
+    WHERE (0 = %(dmonth)s OR (EXTRACT(MONTH FROM journeys.departure_time), EXTRACT(YEAR FROM journeys.departure_time)) = (%(dmonth)s,%(dyear)s)) AND
+    (0 = %(rmonth)s OR (EXTRACT(MONTH FROM journeys.return_time), EXTRACT(YEAR FROM journeys.return_time)) = (%(rmonth)s,%(ryear)s))
+    ''', {'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year})
+    rows = cur.fetchall()
+    starting = int(rows[0][0])
+    ending = int(rows[0][1])
+    starting_distance = float(rows[0][2]) if rows[0][2] != None else float('nan')
+    ending_distance = float(rows[0][3]) if rows[0][3] != None else float('nan')
     cur.execute('''SELECT stations.name, COUNT(*) AS n
     FROM journeys
     JOIN stations ON stations.id = journeys.return_station
-    WHERE departure_station = %s
-    GROUP BY stations.id ORDER BY n DESC LIMIT 5''',(id,))
+    WHERE departure_station = %(id)s AND
+    ((EXTRACT(MONTH FROM departure_time), EXTRACT(YEAR FROM departure_time)) = (%(dmonth)s,%(dyear)s) OR 0 = %(dmonth)s) AND
+    ((EXTRACT(MONTH FROM return_time), EXTRACT(YEAR FROM return_time)) = (%(rmonth)s,%(ryear)s) OR 0 = %(rmonth)s)
+    GROUP BY stations.id ORDER BY n DESC LIMIT 5''',({'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
     returns = list(map(lambda x: x[0], cur.fetchall()))
     cur.execute('''SELECT stations.name, COUNT(*) AS n
     FROM journeys
     JOIN stations ON stations.id = journeys.departure_station
-    WHERE return_station = %s
-    GROUP BY stations.id ORDER BY n DESC LIMIT 5''',(id,))
+    WHERE return_station = %(id)s AND
+    ((EXTRACT(MONTH FROM departure_time), EXTRACT(YEAR FROM departure_time)) = (%(dmonth)s,%(dyear)s) OR 0 = %(dmonth)s) AND
+    ((EXTRACT(MONTH FROM return_time), EXTRACT(YEAR FROM return_time)) = (%(rmonth)s,%(ryear)s) OR 0 = %(rmonth)s)
+    GROUP BY stations.id ORDER BY n DESC LIMIT 5''',({'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
     departures = list(map(lambda x: x[0], cur.fetchall()))
+    cur.execute('''SELECT EXTRACT(MONTH FROM departure_time) AS departure_month, EXTRACT(YEAR FROM departure_time) AS departure_year
+    FROM journeys
+    WHERE departure_station = %s
+    GROUP BY (departure_year, departure_month)''',(id,))
+    departure_months = cur.fetchall()
+    cur.execute('''SELECT EXTRACT(MONTH FROM return_time) AS return_month, EXTRACT(YEAR FROM return_time) AS return_year
+    FROM journeys
+    WHERE return_station = %s
+    GROUP BY (return_year, return_month)''',(id,))
+    return_months = cur.fetchall()
     cur.close()
     con.close()
-    if len(rows) == 0:
-        return Response('No station found with id %s' % id)
-    return render_template('station.html',name=rows[0][0], address=rows[0][1], starting=rows[0][2], ending=rows[0][3],
-    starting_distance=round(float(rows[0][4])/METERS_IN_KILOMETER, DECIMAL_ROUND), ending_distance=round(float(rows[0][5])/METERS_IN_KILOMETER, DECIMAL_ROUND),
-    returns=returns, departures=departures, lat=rows[0][6], lon=rows[0][7])
+    return render_template('station.html',name=name, address=address, starting=starting, ending=ending,
+    starting_distance=round(starting_distance/METERS_IN_KILOMETER, DECIMAL_ROUND), ending_distance=round(ending_distance/METERS_IN_KILOMETER, DECIMAL_ROUND),
+    returns=returns, departures=departures, lat=lat, lon=lon, departuremonths=list(map(lambda x: '{}-{}'.format(x[0],x[1]), departure_months)),
+    returnmonths=list(map(lambda x: '{}-{}'.format(x[0],x[1]), return_months)), departure=departure if departure != None else 'anytime',
+    return_t=return_t if return_t != None else 'anytime')
 
 @app.route('/')
 def index():

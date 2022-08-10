@@ -11,6 +11,19 @@
     </head>
     <body>
         <h1>Station</h1>
+        <form method="get">
+            <label>Display calculations for journeys with departure time in <select name="departure">
+                <option id="any">anytime</option>
+                {% for month in departuremonths %}
+                    <option id="{{month}}" {% if month == departure %}selected{% endif %}>{{month}}</option>
+                {% endfor %}</select> and return time in <select name="return">
+                <option id="any">anytime</option>
+                {% for month in returnmonths %}
+                    <option id="{{month}}" {% if month == return_t %}selected{% endif %}>{{month}}</option>
+                {% endfor %}
+            </select></label>
+            <input type="submit" value="Display">
+        </form>
         <ul>
             <li>Name: {{name}}</li>
             <li>Address: {{address}}</li>
@@ -18,12 +31,12 @@
             <li>{{ending}} journeys end here.</li>
             <li>The average distance of journeys starting here is {{starting_distance}} kilometers.</li>
             <li>The average distance of journeys ending here is {{ending_distance}} kilometers.</li>
-            <li>The most popular returns stations for journeys starting here are<ul>
+            <li>The most popular returns stations for journeys starting here are:<ul>
                 {% for i in range(returns|length) %}
                     <li>{{i + 1}}. {{returns[i]}}</li>
                 {% endfor %}
             </ul></li>
-            <li>The most popular departure stations for journeys ending here are<ul>
+            <li>The most popular departure stations for journeys ending here are:<ul>
                 {% for i in range(departures|length) %}
                     <li>{{i + 1}}. {{departures[i]}}</li>
                 {% endfor %}
