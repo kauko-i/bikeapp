@@ -1,8 +1,10 @@
 <html>
     <head>
         <title>Stations</title>
+        <link rel="StyleSheet" href="{{ url_for('static', filename='nav.css') }}" type="text/css" />
     </head>
     <body>
+        {% include 'nav.html' %}
         <h1>Stations</h1>
         <table>
             <tr>
@@ -19,20 +21,20 @@
                 <th>Longitude</th>
             </tr>
             {% for station in stations %}
-            <tr>
-                <td>{{station['nimi']}}</td>
-                <td>{{station['namn']}}</td>
-                <td>{{station['name']}}</td>
-                <td>{{station['address']}}</td>
-                <td>{{station['adress']}}</td>
-                <td>{{station['city']}}</td>
-                <td>{{station['stad']}}</td>
-                <td>{{station['operator']}}</td>
-                <td>{{station['capacity']}}</td>
-                <td>{{station['lat']}}</td>
-                <td>{{station['lon']}}</td>
-                <td><a href="/stations/{{station['id']}}">Single station view</a></td>
-            </tr>
+                <tr>
+                    <td>{{station['nimi']}}</td>
+                    <td>{{station['namn']}}</td>
+                    <td>{{station['name']}}</td>
+                    <td>{{station['address']}}</td>
+                    <td>{{station['adress']}}</td>
+                    <td>{{station['city']}}</td>
+                    <td>{{station['stad']}}</td>
+                    <td>{{station['operator']}}</td>
+                    <td>{{station['capacity']}}</td>
+                    <td>{{station['lat']}}</td>
+                    <td>{{station['lon']}}</td>
+                    <td><a href="/stations/{{station['id']}}">Single station view</a></td>
+                </tr>
             {% endfor %}
         </table>
     </body>

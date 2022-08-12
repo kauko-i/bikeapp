@@ -1,8 +1,10 @@
 <html>
     <head>
         <title>Journeys</title>
+        <link rel="StyleSheet" href="{{ url_for('static', filename='nav.css') }}" type="text/css" />
     </head>
     <body>
+        {% include 'nav.html' %}
         <h1>Journeys</h1>
         <h2>Filter or order journeys</h2>
         <form method="get">

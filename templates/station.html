@@ -1,6 +1,7 @@
 <html>
     <head>
         <title>Station</title>
+        <link rel="StyleSheet" href="{{ url_for('static', filename='nav.css') }}" type="text/css" />
         <link rel="StyleSheet" href="{{ url_for('static', filename='station.css') }}" type="text/css" />
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css"
         integrity="sha512-hoalWLoI8r4UszCkZ5kL8vayOGVae1oxXe/2A4AO6J9+580uKHDO3JdHb7NzwwzK5xr/Fs0W40kiNHxM9vyTtQ=="
@@ -10,6 +11,7 @@
         crossorigin=""></script>
     </head>
     <body>
+        {% include 'nav.html' %}
         <h1>Station</h1>
         <form method="get">
             <label>Display calculations for journeys with departure time in <select name="departure">
