@@ -19,6 +19,7 @@ DECIMAL_ROUND = 5
 JOURNEY_MIN_DURATION = 10
 JOURNEY_MIN_DISTANCE = 10
 MONTH_PARAM = '^\d(\d)?-\d{4}$'
+ROWS_INSERTED_AT_ONCE = 1000
 
 # A function to validate the name of an uploaded file.
 def allowed_filename(filename):
@@ -30,7 +31,7 @@ app.secret_key = 'secret'
 # A general function to be used to insert data from CSV files to a database.
 # The parameters are the file object, the expected header row, and the function to be applied to each of the other rows.
 # Returns True if upload was successful, otherwise False.
-def uploadfile(file, header, rowoperation):
+def uploadfile(file, header, csv_row2sql_row, insertoperation):
     if file.filename == '' or not allowed_filename(file.filename):
         return False
     secure_name = secure_filename(file.filename)
@@ -41,6 +42,7 @@ def uploadfile(file, header, rowoperation):
             os.remove(secure_name)
             return False
         linesize = len(header.split(','))
+        sql_form_rows = []
         while True:
             rowdata = file.readline().replace('\n', '')
             if not rowdata:
@@ -48,7 +50,15 @@ def uploadfile(file, header, rowoperation):
             rowdata = rowdata.split(',')
             if len(rowdata) != linesize:
                 continue
-            rowoperation(rowdata)
+            sql_form = csv_row2sql_row(rowdata)
+            if len(sql_form) == 0:
+                continue
+            sql_form_rows.append(sql_form)
+            if len(sql_form_rows) == ROWS_INSERTED_AT_ONCE:
+                insertoperation(sql_form_rows)
+                sql_form_rows = []
+        if 0 < len(sql_form_rows):
+            insertoperation(sql_form_rows)
     os.remove(secure_name)
     return True
 
@@ -61,46 +71,30 @@ def upload():
         con = psycopg2.connect(DATABASE_URL, sslmode='require')
         cur = con.cursor()
         # Determines how to do the SQL insert query based on a journey row on a CSV file.
-        def save_journey_row(rowdata):
+        def journey_csv_to_sql(rowdata):
             try:
-                departure_time = parser.parse(rowdata[0])
-                arrival_time = parser.parse(rowdata[1])
-                departure_station = rowdata[2]
-                arrival_station = rowdata[4]
-                distance = float(rowdata[6])
-                # This seems to differ from the difference between the departure and arrival timestamps with a few seconds usually.
-                # Concluded this should be used as the "ultimate source of truth", not the former.
-                duration = float(rowdata[7])
+                return [parser.parse(rowdata[0]),parser.parse(rowdata[1]),rowdata[2],rowdata[4],float(rowdata[6]),float(rowdata[7])]
             except ValueError:
-                return False
-            if JOURNEY_MIN_DISTANCE <= distance and JOURNEY_MIN_DURATION <= duration:
-                cur.execute('''INSERT INTO journeys(departure_time,return_time,departure_station,return_station,distance,duration)
-                VALUES(%s,%s,%s,%s,%s,%s)''', (departure_time,arrival_time,departure_station,arrival_station,distance,duration,))
-            return True
-        if journeys and not uploadfile(journeys, JOURNEY_HEADER, save_journey_row):
+                return []
+        def insert_journeys(rows):
+            journey_str = ','.join(cur.mogrify('(%s,%s,%s,%s,%s,%s)', journey).decode("utf-8") for journey in rows)
+            cur.execute(sql.SQL('''INSERT INTO journeys(departure_time,return_time,departure_station,return_station,distance,duration) VALUES {}''').format(sql.SQL(journey_str)))
+        if journeys and not uploadfile(journeys, JOURNEY_HEADER, journey_csv_to_sql, insert_journeys):
             errors.append('The journey file is inaccurate')
         # Determines how to do the SQL insert query based on a station row on a CSV file.
-        def save_station_row(rowdata):
+        def station_csv_to_sql(rowdata):
             try:
-                id = rowdata[1]
-                nimi = rowdata[2]
-                namn = rowdata[3]
-                name = rowdata[4]
-                osoite = rowdata[5]
-                adress = rowdata[6]
-                city = rowdata[7]
-                stad = rowdata[8]
-                operator = rowdata[9]
-                capacity = int(rowdata[10])
-                lon = float(rowdata[11])
-                lat = float(rowdata[12])
+                columns = rowdata[1:10]
+                columns.extend([int(rowdata[10]),float(rowdata[12]),float(rowdata[11])])
+                return columns
             except ValueError:
-                return False
-            cur.execute('''INSERT INTO stations(id,nimi,namn,name,address,adress,city,stad,operator,capacity,lat,lon)
-            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING''',
-            (id,nimi,namn,name,osoite,adress,city,stad,operator,capacity,lat,lon),)
-            return True
-        if stations and not uploadfile(stations, STATION_HEADER, save_station_row):
+                return []
+        def insert_stations(rows):
+            station_str = ','.join(cur.mogrify('(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)', station).decode("utf-8") for station in rows)
+            cur.execute(sql.SQL('''
+            INSERT INTO stations(id,nimi,namn,name,address,adress,city,stad,operator,capacity,lat,lon) VALUES {} ON CONFLICT DO NOTHING
+            ''').format(sql.SQL(station_str)))
+        if stations and not uploadfile(stations, STATION_HEADER, station_csv_to_sql, insert_stations):
             errors.append('The station file is inaccurate')
         con.commit()
         cur.close()
@@ -218,7 +212,7 @@ def stations(id=None):
     ending = int(rows[0][1])
     starting_distance = float(rows[0][2]) if rows[0][2] != None else float('nan')
     ending_distance = float(rows[0][3]) if rows[0][3] != None else float('nan')
-    cur.execute('''SELECT stations.name, COUNT(*) AS n
+    cur.execute('''SELECT stations.name, COUNT(*) AS n, stations.id
     FROM journeys
     JOIN stations ON stations.id = journeys.return_station
     WHERE departure_station = %(id)s AND
@@ -226,7 +220,7 @@ def stations(id=None):
     ((EXTRACT(MONTH FROM return_time), EXTRACT(YEAR FROM return_time)) = (%(rmonth)s,%(ryear)s) OR 0 = %(rmonth)s)
     GROUP BY stations.id ORDER BY n DESC LIMIT 5''',({'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
     returns = list(map(lambda x: x[0], cur.fetchall()))
-    cur.execute('''SELECT stations.name, COUNT(*) AS n
+    cur.execute('''SELECT stations.name, COUNT(*) AS n, stations.id
     FROM journeys
     JOIN stations ON stations.id = journeys.departure_station
     WHERE return_station = %(id)s AND
