@@ -18,7 +18,7 @@ SECONDS_IN_MINUTE = 60
 DECIMAL_ROUND = 5
 JOURNEY_MIN_DURATION = 10
 JOURNEY_MIN_DISTANCE = 10
-MONTH_PARAM = '^\d(\d)?-\d{4}$'
+MONTH_PARAM = '^\d(\d)?-\d{4}$' # Regular expression describing the form in which the month parameters are passed when fetching station-specific journey calculations
 ROWS_INSERTED_AT_ONCE = 1000
 
 # A function to validate the name of an uploaded file.
@@ -28,13 +28,15 @@ def allowed_filename(filename):
 app = Flask(__name__)
 app.secret_key = 'secret'
 
-# A general function to be used to insert data from CSV files to a database.
-# The parameters are the file object, the expected header row, and the function to be applied to each of the other rows.
-# Returns True if upload was successful, otherwise False.
+# A general function to be used to insert data from CSV files to a SQL database.
+# The parameters are the file object, the expected header line, a function to convert a CSV file line to a list SQL-compatible values,
+# and a function to insert multiple of these lines to a SQL database at once.
+# Returns True if the upload was successful, otherwise False.
 def uploadfile(file, header, csv_row2sql_row, insertoperation):
     if file.filename == '' or not allowed_filename(file.filename):
         return False
     secure_name = secure_filename(file.filename)
+    # The file is saved on the server, but removed after reading it has been completed.
     file.save(secure_name)
     with open(secure_name, 'r', encoding='utf-8-sig') as file:
         line = file.readline()
@@ -42,7 +44,7 @@ def uploadfile(file, header, csv_row2sql_row, insertoperation):
             os.remove(secure_name)
             return False
         linesize = len(header.split(','))
-        sql_form_rows = []
+        sql_form_rows = [] # The rows to be inserted next are collected to this.
         while True:
             rowdata = file.readline().replace('\n', '')
             if not rowdata:
@@ -62,6 +64,7 @@ def uploadfile(file, header, csv_row2sql_row, insertoperation):
     os.remove(secure_name)
     return True
 
+# A page with a form to upload new data from CSV files to the SQL database.
 @app.route('/upload/', methods=['GET','POST'])
 def upload():
     journeys = request.files.get('journeys')
@@ -70,7 +73,6 @@ def upload():
     if request.method == 'POST' and (journeys or stations):
         con = psycopg2.connect(DATABASE_URL, sslmode='require')
         cur = con.cursor()
-        # Determines how to do the SQL insert query based on a journey row on a CSV file.
         def journey_csv_to_sql(rowdata):
             try:
                 return [parser.parse(rowdata[0]),parser.parse(rowdata[1]),rowdata[2],rowdata[4],float(rowdata[6]),float(rowdata[7])]
@@ -78,10 +80,10 @@ def upload():
                 return []
         def insert_journeys(rows):
             journey_str = ','.join(cur.mogrify('(%s,%s,%s,%s,%s,%s)', journey).decode("utf-8") for journey in rows)
+            # The format function is safe with psycopg2.sql objects: https://www.psycopg.org/docs/sql.html
             cur.execute(sql.SQL('''INSERT INTO journeys(departure_time,return_time,departure_station,return_station,distance,duration) VALUES {}''').format(sql.SQL(journey_str)))
         if journeys and not uploadfile(journeys, JOURNEY_HEADER, journey_csv_to_sql, insert_journeys):
             errors.append('The journey file is inaccurate')
-        # Determines how to do the SQL insert query based on a station row on a CSV file.
         def station_csv_to_sql(rowdata):
             try:
                 columns = rowdata[1:10]
@@ -118,6 +120,8 @@ def journeys():
     minduration = -1 if not minduration else float(minduration)*SECONDS_IN_MINUTE
     maxduration = request.args.get('maxduration')
     maxduration = -1 if not maxduration else float(maxduration)*SECONDS_IN_MINUTE
+    # This is how the journeys are ordered by default: primarily departures.name, secondarily returns.name etc.
+    # The primary key can be modified with an URL parameter.
     order_params = ['departures.name', 'returns.name', 'distance', 'duration']
     primary_order = request.args.get('order')
     if primary_order in order_params:
@@ -136,7 +140,6 @@ def journeys():
     (%(mindistance)s <= distance OR %(mindistance)s = -1) AND (distance <= %(maxdistance)s OR %(maxdistance)s = -1) AND
     (%(minduration)s <= duration OR %(minduration)s = -1) AND (duration <= %(maxduration)s OR %(maxduration)s = -1)
     ORDER BY {order1} {direction}, {order2}, {order3}, {order4} LIMIT %(limit)s OFFSET %(offset)s''')
-    # The format function is safe with psycopg2.sql objects: https://www.psycopg.org/docs/sql.html
     .format(order1=sql.SQL(order_params[0]),order2=sql.SQL(order_params[1]),
     order3=sql.SQL(order_params[2]),order4=sql.SQL(order_params[3]),direction=sql.SQL(direction)),
     {'departure':departure,'arrival':arrival,'mindistance':mindistance,'maxdistance':maxdistance,
@@ -151,13 +154,16 @@ def journeys():
         last_page = True
     else:
         rows = rows[:-1]
-    # The journey data is transmitted to the tempalte as a list of dicts.
+    # The journey data is transmitted to the template as a list of dicts.
     row_list = [{'departure_station':str(row[0]),'return_station':str(row[1]),'distance':str(round(float(row[2])/METERS_IN_KILOMETER, DECIMAL_ROUND)),
     'duration':str(round(float(row[3])/SECONDS_IN_MINUTE, DECIMAL_ROUND))} for row in rows]
     # All URL parameters except page are intended to be sustained, but the page links require that the original page parameter is not repassed.
     query = dict(request.args)
     if 'page' in query:
         del query['page']
+    # The query parameter is used to set the form input values to the same value as they had with the request.
+    # Considered using FlaskForm to achieve the same, but this solution didn't seem too complicated for now.
+    # The querystring parameter is used to determine the links used in the next page and former page links.
     return render_template('journeys.html', journeys=row_list, page=page, last=last_page, query=query, querystring=urlencode(query))
 
 # The same function is used for both the station list and the single station view.
@@ -177,6 +183,8 @@ def stations(id=None):
         'lat':round(float(row[10]),DECIMAL_ROUND),'lon':round(float(row[11]),DECIMAL_ROUND)}
         for row in rows]
         return render_template('stations.html', stations=row_list)
+    # The user can filter the journeys on which the station-specific calculations are based on by their departure and return months.
+    # 0 means that all journeys are considered.
     departure = request.args.get('departure')
     departure_year = 0
     departure_month = 0
@@ -191,6 +199,7 @@ def stations(id=None):
         return_split = return_t.split('-')
         return_year = int(return_split[1])
         return_month = int(return_split[0])
+    # Fetch station information not related to journeys.
     cur.execute('''SELECT name, address, lat, lon
     FROM stations
     WHERE stations.id = %s''',(id,))
@@ -201,6 +210,7 @@ def stations(id=None):
     address = rows[0][1]
     lat = rows[0][2]
     lon = rows[0][3]
+    # Fetch the numbers of journeys starting from and ending to the station, and their average distances.
     cur.execute('''SELECT COUNT(CASE WHEN journeys.departure_station = %(id)s THEN 1 END), COUNT(CASE WHEN journeys.return_station = %(id)s THEN 1 END),
     AVG(CASE WHEN journeys.departure_station = %(id)s THEN journeys.distance END), AVG(CASE WHEN journeys.return_station = %(id)s THEN journeys.distance END)
     FROM journeys
@@ -212,6 +222,7 @@ def stations(id=None):
     ending = int(rows[0][1])
     starting_distance = float(rows[0][2]) if rows[0][2] != None else float('nan')
     ending_distance = float(rows[0][3]) if rows[0][3] != None else float('nan')
+    # Fetch the most popular return stations for journeys starting from the station.
     cur.execute('''SELECT stations.name, COUNT(*) AS n, stations.id
     FROM journeys
     JOIN stations ON stations.id = journeys.return_station
@@ -220,6 +231,7 @@ def stations(id=None):
     ((EXTRACT(MONTH FROM return_time), EXTRACT(YEAR FROM return_time)) = (%(rmonth)s,%(ryear)s) OR 0 = %(rmonth)s)
     GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''',({'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
     returns = list(map(lambda x: x[0], cur.fetchall()))
+    # Fetch the most popular departure stations for journeys ending at the station.
     cur.execute('''SELECT stations.name, COUNT(*) AS n, stations.id
     FROM journeys
     JOIN stations ON stations.id = journeys.departure_station
@@ -228,6 +240,8 @@ def stations(id=None):
     ((EXTRACT(MONTH FROM return_time), EXTRACT(YEAR FROM return_time)) = (%(rmonth)s,%(ryear)s) OR 0 = %(rmonth)s)
     GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''',({'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
     departures = list(map(lambda x: x[0], cur.fetchall()))
+    # Fetch the departure and return months and years appearing in the journeys related to this station.
+    # It may seem useless to fetch these on every request, but shouldn't the database be the ultimate source of truth?
     cur.execute('''SELECT EXTRACT(MONTH FROM departure_time) AS departure_month, EXTRACT(YEAR FROM departure_time) AS departure_year
     FROM journeys
     WHERE departure_station = %s
