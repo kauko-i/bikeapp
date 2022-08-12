@@ -218,7 +218,7 @@ def stations(id=None):
     WHERE departure_station = %(id)s AND
     ((EXTRACT(MONTH FROM departure_time), EXTRACT(YEAR FROM departure_time)) = (%(dmonth)s,%(dyear)s) OR 0 = %(dmonth)s) AND
     ((EXTRACT(MONTH FROM return_time), EXTRACT(YEAR FROM return_time)) = (%(rmonth)s,%(ryear)s) OR 0 = %(rmonth)s)
-    GROUP BY stations.id ORDER BY n DESC LIMIT 5''',({'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
+    GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''',({'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
     returns = list(map(lambda x: x[0], cur.fetchall()))
     cur.execute('''SELECT stations.name, COUNT(*) AS n, stations.id
     FROM journeys
@@ -226,7 +226,7 @@ def stations(id=None):
     WHERE return_station = %(id)s AND
     ((EXTRACT(MONTH FROM departure_time), EXTRACT(YEAR FROM departure_time)) = (%(dmonth)s,%(dyear)s) OR 0 = %(dmonth)s) AND
     ((EXTRACT(MONTH FROM return_time), EXTRACT(YEAR FROM return_time)) = (%(rmonth)s,%(ryear)s) OR 0 = %(rmonth)s)
-    GROUP BY stations.id ORDER BY n DESC LIMIT 5''',({'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
+    GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''',({'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
     departures = list(map(lambda x: x[0], cur.fetchall()))
     cur.execute('''SELECT EXTRACT(MONTH FROM departure_time) AS departure_month, EXTRACT(YEAR FROM departure_time) AS departure_year
     FROM journeys
