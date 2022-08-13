@@ -1,4 +1,5 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
     <head>
         <title>Journeys</title>
         <link rel="StyleSheet" href="{{ url_for('static', filename='nav.css') }}" type="text/css" />
@@ -11,21 +12,27 @@
             <label>The departure station must be: <input name="departure" value="{{query['departure']}}"></label>
             <br>
             <label>The return station must be: <input name="return" value="{{query['return']}}"></label>
-            <br>
-            <label><input name="mindistance" type="number" step="0.001" value="{{query['mindistance']}}"> kilometers &lt;= distance &lt;= <input name="maxdistance" type="number" step="0.001" value="{{query['maxdistance']}}"> kilometers</label>
-            <br>
-            <label><input name="minduration" type="number" step="0.001" value="{{query['minduration']}}"> minutes &lt;= duration &lt;= <input name="maxduration" type="number" step="0.001"  value="{{query['maxduration']}}"> minutes</label>
-            <br>
-            <label>Order the journeys by <select name="order">
-                <option value="departures.name" {% if query['order'] == 'departures.name' %}selected{% endif %}>departure station</option>
-                <option value="returns.name" {% if query['order'] == 'returns.name' %}selected{% endif %}>return station</option>
-                <option value="distance" {% if query['order'] == 'distance' %}selected{% endif %}>distance</option>
-                <option value="duration" {% if query['order'] == 'duration' %}selected{% endif %}>duration</option>
-            </select> in <select name="direction">
-                <option value="ASC" {% if query['direction'] == 'ASC' %}selected{% endif %}>ascending</option>
-                <option value="DESC" {% if query['direction'] == 'DESC' %}selected{% endif %}>descending</option>
-            </select> order.</label>
-            <br>
+            <fieldset>
+                <label><input name="mindistance" type="number" step="0.001" value="{{query['mindistance']}}"> kilometers</label>
+                &lt;= distance &lt;= 
+                <label><input name="maxdistance" type="number" step="0.001" value="{{query['maxdistance']}}"> kilometers</label>
+            </fieldset>
+            <fieldset>
+                <label><input name="minduration" type="number" step="0.001" value="{{query['minduration']}}"> minutes</label>
+                &lt;= duration &lt;= 
+                <label><input name="maxduration" type="number" step="0.001" value="{{query['maxduration']}}"> minutes</label>
+            </fieldset>
+            <fieldset>
+                Order the journeys by <select name="order">
+                    <option value="departures.name" {% if query['order'] == 'departures.name' %}selected{% endif %}>departure station</option>
+                    <option value="returns.name" {% if query['order'] == 'returns.name' %}selected{% endif %}>return station</option>
+                    <option value="distance" {% if query['order'] == 'distance' %}selected{% endif %}>distance</option>
+                    <option value="duration" {% if query['order'] == 'duration' %}selected{% endif %}>duration</option>
+                </select> in <select name="direction">
+                    <option value="ASC" {% if query['direction'] == 'ASC' %}selected{% endif %}>ascending</option>
+                    <option value="DESC" {% if query['direction'] == 'DESC' %}selected{% endif %}>descending</option>
+                </select> order.
+            </fieldset>
             <input type="submit" value="Apply filters and/or ordering">
         </form>
         {% if page != 0 %}

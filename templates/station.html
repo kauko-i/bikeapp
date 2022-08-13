@@ -1,4 +1,5 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
     <head>
         <title>Station</title>
         <link rel="StyleSheet" href="{{ url_for('static', filename='nav.css') }}" type="text/css" />
@@ -14,16 +15,16 @@
         {% include 'nav.html' %}
         <h1>Station</h1>
         <form method="get">
-            <label>Display calculations for journeys with departure time in <select name="departure">
-                <option id="any">anytime</option>
+            <fieldset>Display calculations for journeys with departure time in <select name="departure">
+                <option value="any">anytime</option>
                 {% for month in departuremonths %}
-                    <option id="{{month}}" {% if month == departure %}selected{% endif %}>{{month}}</option>
+                    <option value="{{month}}" {% if month == departure %}selected{% endif %}>{{month}}</option>
                 {% endfor %}</select> and return time in <select name="return">
-                <option id="any">anytime</option>
+                <option value="value">anytime</option>
                 {% for month in returnmonths %}
-                    <option id="{{month}}" {% if month == return_t %}selected{% endif %}>{{month}}</option>
+                    <option value="{{month}}" {% if month == return_t %}selected{% endif %}>{{month}}</option>
                 {% endfor %}
-            </select></label>
+            </select></fieldset>
             <input type="submit" value="Display">
         </form>
         <ul>
