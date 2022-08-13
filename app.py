@@ -1,11 +1,12 @@
-from flask import Flask, Response, render_template, request
+"""The backend service used in the Solita Dev Academy fall 2022 pre-assignment"""
 import os
+import re
+from urllib.parse import urlencode
+from flask import Flask, Response, render_template, request
 from werkzeug.utils import secure_filename
 from dateutil import parser
 import psycopg2
 from psycopg2 import sql
-from urllib.parse import urlencode
-import re
 
 # Constraints related to the app.
 ALLOWED_EXTENSIONS = ['csv']
@@ -18,21 +19,25 @@ SECONDS_IN_MINUTE = 60
 DECIMAL_ROUND = 5
 JOURNEY_MIN_DURATION = 10
 JOURNEY_MIN_DISTANCE = 10
-MONTH_PARAM = '^\d(\d)?-\d{4}$' # Regular expression describing the form in which the month parameters are passed when fetching station-specific journey calculations
+MONTH_PARAM = '^\\d(\\d)?-\\d{4}$' # Regular expression describing the form in which the month parameters are passed when fetching station-specific journey calculations
 ROWS_INSERTED_AT_ONCE = 1000
 
-# A function to validate the name of an uploaded file.
 def allowed_filename(filename):
+    '''A function to validate the name of an uploaded file.'''
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 app = Flask(__name__)
 app.secret_key = 'secret'
 
-# A general function to be used to insert data from CSV files to a SQL database.
-# The parameters are the file object, the expected header line, a function to convert a CSV file line to a list SQL-compatible values,
-# a function to validate the SQL-compatible value list, and a function to insert multiple of these lines to a SQL database at once.
-# Returns True if the upload was successful, otherwise False.
 def uploadfile(file, header, csv_row2sql_row, validate_row, insertoperation):
+    '''
+    A general function to be used to insert data from CSV files to a SQL database.
+    The parameters are the file object, the expected header line, a function to
+    convert a CSV file line to a list SQL-compatible values,
+    a function to validate the SQL-compatible value list, and a function to insert
+    multiple of these lines to a SQL database at once.
+    Returns True if the upload was successful, otherwise False.
+    '''
     if file.filename == '' or not allowed_filename(file.filename):
         return False
     secure_name = secure_filename(file.filename)
@@ -64,13 +69,11 @@ def uploadfile(file, header, csv_row2sql_row, validate_row, insertoperation):
     os.remove(secure_name)
     return True
 
-# A page with a form to upload new data from CSV files to the SQL database.
 @app.route('/upload/', methods=['GET','POST'])
 def upload():
-    journeys = request.files.get('journeys')
-    stations = request.files.get('stations')
+    '''A page with a form to upload new data from CSV files to the SQL database.'''
     errors = []
-    if request.method == 'POST' and (journeys or stations):
+    if (request.method == 'POST' and (request.files.get('journeys') or request.files.get('stations'))):
         con = psycopg2.connect(DATABASE_URL, sslmode='require')
         cur = con.cursor()
         def journey_csv_to_sql(rowdata):
@@ -82,7 +85,7 @@ def upload():
             journey_str = ','.join(cur.mogrify('(%s,%s,%s,%s,%s,%s)', journey).decode("utf-8") for journey in rows)
             # The format function is safe with psycopg2.sql objects: https://www.psycopg.org/docs/sql.html
             cur.execute(sql.SQL('''INSERT INTO journeys(departure_time,return_time,departure_station,return_station,distance,duration) VALUES {}''').format(sql.SQL(journey_str)))
-        if journeys and not uploadfile(journeys, JOURNEY_HEADER, journey_csv_to_sql, lambda row: 10 <= row[4] and 10 <= row[5], insert_journeys):
+        if request.files.get('journeys') and not uploadfile(request.files.get('journeys'), JOURNEY_HEADER, journey_csv_to_sql, lambda row: 10 <= row[4] and 10 <= row[5], insert_journeys):
             errors.append('The journey file is inaccurate')
         def station_csv_to_sql(rowdata):
             try:
@@ -96,7 +99,7 @@ def upload():
             cur.execute(sql.SQL('''
             INSERT INTO stations(id,nimi,namn,name,address,adress,city,stad,operator,capacity,lat,lon) VALUES {} ON CONFLICT DO NOTHING
             ''').format(sql.SQL(station_str)))
-        if stations and not uploadfile(stations, STATION_HEADER, station_csv_to_sql, lambda : True, insert_stations):
+        if request.files.get('stations') and not uploadfile(request.files.get('stations'), STATION_HEADER, station_csv_to_sql, lambda : True, insert_stations):
             errors.append('The station file is inaccurate')
         con.commit()
         cur.close()
@@ -166,14 +169,17 @@ def journeys():
     # The querystring parameter is used to determine the links used in the next page and former page links.
     return render_template('journeys.html', journeys=row_list, page=page, last=last_page, query=query, querystring=urlencode(query))
 
-# The same function is used for both the station list and the single station view.
-# If id is None, the whole list is displayed. Otherwise, a single station view is displayed according to the id.
 @app.route('/stations/')
-@app.route('/stations/<id>/')
-def stations(id=None):
+# I know idd is not a perfect variable name, but id is an inbuilt function and ID would seem like a global constraint.
+@app.route('/stations/<idd>/')
+def stations(idd=None):
+    '''
+    The same function is used for both the station list and the single station view.
+    If idd is None, the whole list is displayed. Otherwise, a single station view is displayed according to the idd.
+    '''
     con = psycopg2.connect(DATABASE_URL, sslmode='require')
     cur = con.cursor()
-    if not id:
+    if not idd:
         cur.execute('SELECT * FROM stations')
         rows = cur.fetchall()
         cur.close()
@@ -202,10 +208,10 @@ def stations(id=None):
     # Fetch station information not related to journeys.
     cur.execute('''SELECT name, address, lat, lon
     FROM stations
-    WHERE stations.id = %s''',(id,))
+    WHERE stations.id = %s''',(idd,))
     rows = cur.fetchall()
     if len(rows) == 0:
-        return Response('No station found with id %s' % id)
+        return Response('No station found with id %s' % idd)
     name = rows[0][0]
     address = rows[0][1]
     lat = rows[0][2]
@@ -216,7 +222,7 @@ def stations(id=None):
     FROM journeys
     WHERE (0 = %(dmonth)s OR (EXTRACT(MONTH FROM journeys.departure_time), EXTRACT(YEAR FROM journeys.departure_time)) = (%(dmonth)s,%(dyear)s)) AND
     (0 = %(rmonth)s OR (EXTRACT(MONTH FROM journeys.return_time), EXTRACT(YEAR FROM journeys.return_time)) = (%(rmonth)s,%(ryear)s))
-    ''', {'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year})
+    ''', {'id': idd, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year})
     rows = cur.fetchall()
     starting = int(rows[0][0])
     ending = int(rows[0][1])
@@ -229,7 +235,7 @@ def stations(id=None):
     WHERE departure_station = %(id)s AND
     ((EXTRACT(MONTH FROM departure_time), EXTRACT(YEAR FROM departure_time)) = (%(dmonth)s,%(dyear)s) OR 0 = %(dmonth)s) AND
     ((EXTRACT(MONTH FROM return_time), EXTRACT(YEAR FROM return_time)) = (%(rmonth)s,%(ryear)s) OR 0 = %(rmonth)s)
-    GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''',({'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
+    GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''',({'id': idd, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
     returns = list(map(lambda x: x[0], cur.fetchall()))
     # Fetch the most popular departure stations for journeys ending at the station.
     cur.execute('''SELECT stations.name, COUNT(*) AS n, stations.id
@@ -238,19 +244,19 @@ def stations(id=None):
     WHERE return_station = %(id)s AND
     ((EXTRACT(MONTH FROM departure_time), EXTRACT(YEAR FROM departure_time)) = (%(dmonth)s,%(dyear)s) OR 0 = %(dmonth)s) AND
     ((EXTRACT(MONTH FROM return_time), EXTRACT(YEAR FROM return_time)) = (%(rmonth)s,%(ryear)s) OR 0 = %(rmonth)s)
-    GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''',({'id': id, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
+    GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''',({'id': idd, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
     departures = list(map(lambda x: x[0], cur.fetchall()))
     # Fetch the departure and return months and years appearing in the journeys related to this station.
     # It may seem useless to fetch these on every request, but shouldn't the database be the ultimate source of truth?
     cur.execute('''SELECT EXTRACT(MONTH FROM departure_time) AS departure_month, EXTRACT(YEAR FROM departure_time) AS departure_year
     FROM journeys
     WHERE departure_station = %s
-    GROUP BY (departure_year, departure_month)''',(id,))
+    GROUP BY (departure_year, departure_month)''',(idd,))
     departure_months = cur.fetchall()
     cur.execute('''SELECT EXTRACT(MONTH FROM return_time) AS return_month, EXTRACT(YEAR FROM return_time) AS return_year
     FROM journeys
     WHERE return_station = %s
-    GROUP BY (return_year, return_month)''',(id,))
+    GROUP BY (return_year, return_month)''',(idd,))
     return_months = cur.fetchall()
     cur.close()
     con.close()
@@ -262,6 +268,7 @@ def stations(id=None):
 
 @app.route('/')
 def index():
+    ''' The frontpage has no practical purpose. '''
     return Response('hello')
 
 if __name__ == '__main__':
