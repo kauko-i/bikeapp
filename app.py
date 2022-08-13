@@ -27,7 +27,6 @@ def allowed_filename(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 app = Flask(__name__)
-app.secret_key = 'secret'
 
 def uploadfile(file, header, csv_row2sql_row, validate_row, insertoperation):
     '''
