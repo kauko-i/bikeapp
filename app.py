@@ -268,8 +268,7 @@ def stations(idd=None):
 
 @app.route('/')
 def index():
-    ''' The frontpage has no practical purpose. '''
-    return Response('hello')
+    return render_template('index.html')
 
 if __name__ == '__main__':
     app.debug = True
