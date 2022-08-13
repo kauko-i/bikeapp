@@ -30,9 +30,9 @@ app.secret_key = 'secret'
 
 # A general function to be used to insert data from CSV files to a SQL database.
 # The parameters are the file object, the expected header line, a function to convert a CSV file line to a list SQL-compatible values,
-# and a function to insert multiple of these lines to a SQL database at once.
+# a function to validate the SQL-compatible value list, and a function to insert multiple of these lines to a SQL database at once.
 # Returns True if the upload was successful, otherwise False.
-def uploadfile(file, header, csv_row2sql_row, insertoperation):
+def uploadfile(file, header, csv_row2sql_row, validate_row, insertoperation):
     if file.filename == '' or not allowed_filename(file.filename):
         return False
     secure_name = secure_filename(file.filename)
@@ -53,7 +53,7 @@ def uploadfile(file, header, csv_row2sql_row, insertoperation):
             if len(rowdata) != linesize:
                 continue
             sql_form = csv_row2sql_row(rowdata)
-            if len(sql_form) == 0:
+            if len(sql_form) == 0 or not validate_row(sql_form):
                 continue
             sql_form_rows.append(sql_form)
             if len(sql_form_rows) == ROWS_INSERTED_AT_ONCE:
@@ -82,7 +82,7 @@ def upload():
             journey_str = ','.join(cur.mogrify('(%s,%s,%s,%s,%s,%s)', journey).decode("utf-8") for journey in rows)
             # The format function is safe with psycopg2.sql objects: https://www.psycopg.org/docs/sql.html
             cur.execute(sql.SQL('''INSERT INTO journeys(departure_time,return_time,departure_station,return_station,distance,duration) VALUES {}''').format(sql.SQL(journey_str)))
-        if journeys and not uploadfile(journeys, JOURNEY_HEADER, journey_csv_to_sql, insert_journeys):
+        if journeys and not uploadfile(journeys, JOURNEY_HEADER, journey_csv_to_sql, lambda row: 10 <= row[4] and 10 <= row[5], insert_journeys):
             errors.append('The journey file is inaccurate')
         def station_csv_to_sql(rowdata):
             try:
@@ -96,7 +96,7 @@ def upload():
             cur.execute(sql.SQL('''
             INSERT INTO stations(id,nimi,namn,name,address,adress,city,stad,operator,capacity,lat,lon) VALUES {} ON CONFLICT DO NOTHING
             ''').format(sql.SQL(station_str)))
-        if stations and not uploadfile(stations, STATION_HEADER, station_csv_to_sql, insert_stations):
+        if stations and not uploadfile(stations, STATION_HEADER, station_csv_to_sql, lambda : True, insert_stations):
             errors.append('The station file is inaccurate')
         con.commit()
         cur.close()
