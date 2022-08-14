@@ -38,7 +38,7 @@ Now, the app should be running on localhost:5000.
 
 ## About the personal choices with this assignment
 
-I considered using Node and TypeScript as well to crate the backend services as the language has become familiar at BirdLife.
+I considered using Node and TypeScript as well to create the backend services as the language has become familiar at BirdLife.
 However, Flask is the backend service framework I’m most familiar with. I've created another app, saastaruoassa (published on GitHub and Heroku cloud service as well) with that.
 
 I thought proper database usage is the most important aspect of the assignment as there are millions of journeys.
