@@ -16,6 +16,7 @@ python3 -m venv venv # Create a virtual environment for the backend service
 . venv/bin/activate # Activate that virtual environment
 pip install -r requirements.txt # Install the requirements listed in requirements.txt
 # The following command tells the server to connect to the specified database.
+# The URL used by the app running on Heroku has been emailed to Pauliina Hovila.
 export DATABASE_URL=[INSERT YOUR DATABASE URL]
 flask run # Run the server
 ```
@@ -24,7 +25,7 @@ To deactivate the virtual environment, run `deactivate`.
 
 ## Run locally in Docker
 
-Modify the DATABASE_URL on the line 2 in Dockerfile to connect the app to a database.
+Modify the DATABASE_URL on the line 2 in Dockerfile to connect the app to a database. The URL used by the app running on Heroku has been emailed to Pauliina Hovila.
 
 These commands are tested on Ubuntu 20.04. Given that Docker has been installed, in the root directory of this app, run:
 ```
@@ -39,7 +40,6 @@ I considered using Node and TypeScript as well to create the backend services as
 However, Flask is the backend service framework I’m most familiar with. I've created another app, saastaruoassa (published on GitHub and Heroku cloud service as well) with that.
 
 I thought proper database usage is the most important aspect of the assignment as there are millions of journeys.
-The stucture of the CSV files seems so regular that SQL seems the self-evident choice for hosting the data. Google Cloud seemed the most
-trustworthy, but (limitedly) free SQL hosting service online. I didn’t allocate very much resources for the SQL instance running in Google Cloud to save my free trial quota. That may make the app a bit slow when using the Coogle Cloud database.
+The stucture of the CSV files seems so regular that SQL seems the self-evident choice for hosting the data. The Heroku app uses a Google Cloud hosted database. Google Cloud seemed the most trustworthy, but (limitedly) free SQL hosting service online. I didn’t allocate very much resources for the SQL instance running in Google Cloud to save my free trial quota. That may make the app a bit slow when using the Coogle Cloud database.
 
 It seems like every journey is listed twice in the CSV files linked in the instructions. However, the journeys don't contain any ID keys (unlike stations), and nothing proves two journeys can't have the exactly same attributes.
