@@ -15,11 +15,8 @@ To install that, run `sudo apt-get install python3-venv`. You need the sudo cred
 python3 -m venv venv # Create a virtual environment for the backend service
 . venv/bin/activate # Activate that virtual environment
 pip install -r requirements.txt # Install the requirements listed in requirements.txt
-# The following command tells the server to connect to the Google Cloud PostgreSQL database.
-# You can specify another database as well, such as a locally hosted database.
-# Modify the URL if you wish.
-# These credentials only allow the operations used by the app, so I see no security threat in publishing these.
-export DATABASE_URL=postgres://bikeapptaliso:clutch@34.136.166.67/bikeapp
+# The following command tells the server to connect to the specified database.
+export DATABASE_URL=[INSERT YOUR DATABASE URL]
 flask run # Run the server
 ```
 Now, the app should be running on localhost:5000.
@@ -27,9 +24,9 @@ To deactivate the virtual environment, run `deactivate`.
 
 ## Run locally in Docker
 
-You can modify the DATABASE_URL on the line 5 in Dockerfile if you wish to use some other database with this app.
+Modify the DATABASE_URL on the line 2 in Dockerfile to connect the app to a database.
 
-These commands are tested on Ubuntu 20.04. Given that Docker is installed, in the root directory of this app, run:
+These commands are tested on Ubuntu 20.04. Given that Docker has been installed, in the root directory of this app, run:
 ```
 docker build .
 docker run -p 5000:5000 [THE IMAGE ID APPEARING ON THE LAST LINE OF THE FORMER COMMAND OUTPUT, PRECEDED BY "Successfully built"]
