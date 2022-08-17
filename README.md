@@ -1,14 +1,14 @@
 # bikeapp
 
 This is the pre-assignment for the Solita Dev Academy in fall 2022, following these instructions: https://github.com/solita/dev-academy-2022-fall-exercise/blob/main/README.md
-Every recommended and additional feature except pagination and searching on the station list view is completed. No extra features included.
+Every recommended and additional feature except pagination and searching on the station list view has been completed. No extra features included.
 
 The app is running at bikeapp-taliso.herokuapp.com, so you only need an Internet connection and a browser for basic testing and usage.
 
 ## Run locally on Linux
 
-These commands are tested on Ubuntu 20.04.
-After cloning the repo, the following commands on the root directory of this app should start up the server.
+These commands have been tested on Ubuntu 20.04.
+After cloning the repo, the following commands in the root directory of this app should start up the server.
 Python 3 is installed on Ubuntu 20.04 by default, but the app is intended to be run in a virtual environment created by the `python3-venv` package.
 To install that, run `sudo apt-get install python3-venv`. You need the sudo credentials to run that.
 ```
@@ -27,7 +27,7 @@ To deactivate the virtual environment, run `deactivate`.
 
 Modify the DATABASE_URL on the line 2 in Dockerfile to connect the app to a database. The URL used by the app running on Heroku has been emailed to Pauliina Hovila.
 
-These commands are tested on Ubuntu 20.04. Given that Docker has been installed, in the root directory of this app, run:
+These commands have been tested on Ubuntu 20.04. Given that Docker has been installed, in the root directory of this app, run:
 ```
 docker build .
 docker run -p 5000:5000 [THE IMAGE ID APPEARING ON THE LAST LINE OF THE FORMER COMMAND OUTPUT, PRECEDED BY "Successfully built"]
