@@ -25,12 +25,12 @@ To deactivate the virtual environment, run `deactivate`.
 
 ## Run locally in Docker
 
-Modify the DATABASE_URL on the line 2 in Dockerfile to connect the app to a database. The URL used by the app running on Heroku has been emailed to Pauliina Hovila.
+The URL used by the app running on Heroku has been emailed to Pauliina Hovila.
 
 These commands have been tested on Ubuntu 20.04. Given that Docker has been installed, in the root directory of this app, run:
 ```
-docker build .
-docker run -p 5000:5000 --env DATABASE_URL=[INSERT YOUR DATABASE URL] [THE IMAGE ID APPEARING ON THE LAST LINE OF THE FORMER COMMAND OUTPUT, PRECEDED BY "Successfully built"]
+docker build -t bikeapp .
+docker run -p 5000:5000 --env DATABASE_URL=[INSERT YOUR DATABASE URL] bikeapp
 ```
 Now, the app should be running on localhost:5000.
 
