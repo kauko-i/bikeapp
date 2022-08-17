@@ -30,7 +30,7 @@ Modify the DATABASE_URL on the line 2 in Dockerfile to connect the app to a data
 These commands have been tested on Ubuntu 20.04. Given that Docker has been installed, in the root directory of this app, run:
 ```
 docker build .
-docker run -p 5000:5000 [THE IMAGE ID APPEARING ON THE LAST LINE OF THE FORMER COMMAND OUTPUT, PRECEDED BY "Successfully built"]
+docker run -p 5000:5000 --env DATABASE_URL=[INSERT YOUR DATABASE URL] [THE IMAGE ID APPEARING ON THE LAST LINE OF THE FORMER COMMAND OUTPUT, PRECEDED BY "Successfully built"]
 ```
 Now, the app should be running on localhost:5000.
 
