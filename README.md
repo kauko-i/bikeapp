@@ -1,3 +1,6 @@
+> **This repository has received some improvements after the deadline – they're not affecting the actual functionalities of the app, but improving the README and Docker instructions.**
+> **The deadline version of this repository is:** https://github.com/kauko-i/bikeapp/tree/533270e2372ffc5484643c63e4b0013c67185829
+
 # bikeapp
 
 This is the pre-assignment for the Solita Dev Academy in fall 2022, following these instructions: https://github.com/solita/dev-academy-2022-fall-exercise/blob/main/README.md
@@ -36,10 +39,18 @@ Now, the app should be running on localhost:5000.
 
 ## About the personal choices with this assignment
 
+### Used technologies
+* PostgreSQL
+* Google Cloud for hosting the database
+* Flask
+* Heroku for hosting the backend services
+* Jinja templates for generating the HTML
+* Leaflet to display a map on the single station view
+
 I considered using Node and TypeScript as well to create the backend services as the language has become familiar at BirdLife.
 However, Flask is the backend service framework I’m most familiar with. I've created another app, saastaruoassa (published on GitHub and Heroku cloud service as well) with that.
 
 I thought proper database usage is the most important aspect of the assignment as there are millions of journeys.
-The stucture of the CSV files seems so regular that SQL seems the self-evident choice for hosting the data. The Heroku app uses a Google Cloud hosted database. Google Cloud seemed the most trustworthy, but (limitedly) free SQL hosting service online. I didn’t allocate very much resources for the SQL instance running in Google Cloud to save my free trial quota. That may make the app a bit slow when using the Coogle Cloud database.
+The structure of the CSV files seems so regular that SQL seems the self-evident choice for hosting the data. The Heroku app uses a Google Cloud hosted database. Google Cloud seemed the most trustworthy, but (limitedly) free SQL hosting service online. I didn’t allocate very much resources for the SQL instance running in Google Cloud to save my free trial quota. That may make the app a bit slow when using the Coogle Cloud database.
 
 It seems like every journey is listed twice in the CSV files linked in the instructions. However, the journeys don't contain any ID keys (unlike stations), and nothing proves two journeys can't have the exactly same attributes.
