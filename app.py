@@ -79,12 +79,22 @@ def upload():
         cur = con.cursor()
         def journey_csv_to_sql(rowdata):
             try:
-                return [parser.parse(rowdata[0]),parser.parse(rowdata[1]),rowdata[2],rowdata[4],float(rowdata[6]),float(rowdata[7])]
+                return [
+                    parser.parse(rowdata[0]),
+                    parser.parse(rowdata[1]),
+                    rowdata[2],
+                    rowdata[4],
+                    float(rowdata[6]),
+                    float(rowdata[7])
+                ]
             except ValueError:
                 return []
         def insert_journeys(rows):
-            journey_str = ','.join(cur.mogrify('(%s,%s,%s,%s,%s,%s)', journey).decode("utf-8") for journey in rows)
-            # The format function is safe with psycopg2.sql objects: https://www.psycopg.org/docs/sql.html
+            journey_str = ','.join(
+                cur.mogrify('(%s,%s,%s,%s,%s,%s)', journey).decode("utf-8") for journey in rows
+            )
+            # The format function is safe with psycopg2.sql objects:
+            # https://www.psycopg.org/docs/sql.html
             cur.execute(sql.SQL('''INSERT INTO journeys(departure_time,return_time,departure_station,return_station,distance,duration) VALUES {}''').format(sql.SQL(journey_str)))
         if request.files.get('journeys') and not uploadfile(request.files.get('journeys'), JOURNEY_HEADER, journey_csv_to_sql, lambda row: 10 <= row[4] and 10 <= row[5], insert_journeys):
             errors.append('The journey file is inaccurate')
