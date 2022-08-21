@@ -152,7 +152,8 @@ def journeys():
     minduration = -1 if not minduration else float(minduration)*SECONDS_IN_MINUTE
     maxduration = request.args.get('maxduration')
     maxduration = -1 if not maxduration else float(maxduration)*SECONDS_IN_MINUTE
-    # This is how the journeys are ordered by default: primarily departures.name, secondarily returns.name etc.
+    # This is how the journeys are ordered by default:
+    # primarily departures.name, secondarily returns.name etc.
     # The primary key can be modified with an URL parameter.
     order_params = ['departures.name', 'returns.name', 'distance', 'duration']
     primary_order = request.args.get('order')
@@ -171,11 +172,13 @@ def journeys():
     WHERE (departures.name = %(departure)s OR %(departure)s = '') AND (returns.name = %(arrival)s OR %(arrival)s = '') AND
     (%(mindistance)s <= distance OR %(mindistance)s = -1) AND (distance <= %(maxdistance)s OR %(maxdistance)s = -1) AND
     (%(minduration)s <= duration OR %(minduration)s = -1) AND (duration <= %(maxduration)s OR %(maxduration)s = -1)
-    ORDER BY {order1} {direction}, {order2}, {order3}, {order4} LIMIT %(limit)s OFFSET %(offset)s''')
+    ORDER BY {order1} {direction}, {order2}, {order3}, {order4} LIMIT %(limit)s OFFSET %(offset)s'''
+    )
     .format(order1=sql.SQL(order_params[0]),order2=sql.SQL(order_params[1]),
     order3=sql.SQL(order_params[2]),order4=sql.SQL(order_params[3]),direction=sql.SQL(direction)),
     {'departure':departure,'arrival':arrival,'mindistance':mindistance,'maxdistance':maxdistance,
-    'minduration':minduration,'maxduration':maxduration,'limit':JOURNEY_LIMIT + 1,'offset':JOURNEY_LIMIT*page})
+    'minduration':minduration,'maxduration':maxduration,'limit':JOURNEY_LIMIT + 1,
+    'offset':JOURNEY_LIMIT*page})
     rows = cur.fetchall()
     cur.close()
     con.close()
@@ -187,16 +190,27 @@ def journeys():
     else:
         rows = rows[:-1]
     # The journey data is transmitted to the template as a list of dicts.
-    row_list = [{'departure_station':str(row[0]),'return_station':str(row[1]),'distance':str(round(float(row[2])/METERS_IN_KILOMETER, DECIMAL_ROUND)),
+    row_list = [{'departure_station':str(row[0]),'return_station':str(row[1]),
+    'distance':str(round(float(row[2])/METERS_IN_KILOMETER, DECIMAL_ROUND)),
     'duration':str(round(float(row[3])/SECONDS_IN_MINUTE, DECIMAL_ROUND))} for row in rows]
-    # All URL parameters except page are intended to be sustained, but the page links require that the original page parameter is not repassed.
+    # All URL parameters except page are intended to be sustained,
+    # but the page links require that the original page parameter is not repassed.
     query = dict(request.args)
     if 'page' in query:
         del query['page']
-    # The query parameter is used to set the form input values to the same value as they had with the request.
-    # Considered using FlaskForm to achieve the same, but this solution didn't seem too complicated for now.
-    # The querystring parameter is used to determine the links used in the next page and former page links.
-    return render_template('journeys.html', journeys=row_list, page=page, last=last_page, query=query, querystring=urlencode(query))
+    # The query parameter is used to set the form input
+    # values to the same value as they had with the request.
+    # Considered using FlaskForm to achieve the same,
+    # but this solution didn't seem too complicated for now.
+    # The querystring parameter is used to determine the
+    # links used in the next page and former page links.
+    return render_template(
+        'journeys.html',
+        journeys=row_list,
+        page=page,
+        last=last_page,
+        query=query,
+        querystring=urlencode(query))
 
 @app.route('/stations/')
 # I know idd is not a perfect variable name, but id is an inbuilt function and ID would seem like a global constraint.
