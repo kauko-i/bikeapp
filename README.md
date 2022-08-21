@@ -1,5 +1,6 @@
-> **This repository has received some improvements after the deadline – they're not affecting the actual functionalities of the app, but improving the README and Docker instructions and cleaning the code.**
+> **This repository has received some improvements after the deadline. They're improving the README and Docker instructions, cleaning the code, and fixing a bug I will tell about a bit later.**
 > **The deadline version of this repository is:** https://github.com/kauko-i/bikeapp/tree/533270e2372ffc5484643c63e4b0013c67185829
+> **Confession: there's a bug on line 101 in app.py with that version. The lambda expression lacks the formal parameter, causing new station uploads to crash the app. I swear I will test even the changes with the most self-evident consequences, particularly when automatic testing is not in use.**
 
 # bikeapp
 
