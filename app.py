@@ -10,14 +10,17 @@ from psycopg2 import sql
 
 # Constraints related to the app.
 ALLOWED_EXTENSIONS = ['csv']
-JOURNEY_HEADER = 'Departure,Return,Departure station id,Departure station name,Return station id,Return station name,Covered distance (m),Duration (sec.)\n'
+JOURNEY_HEADER = ('Departure,Return,Departure station id,Departure station name,Return station id,'
+                'Return station name,Covered distance (m),Duration (sec.)\n')
 STATION_HEADER = 'FID,ID,Nimi,Namn,Name,Osoite,Adress,Kaupunki,Stad,Operaattor,Kapasiteet,x,y\n'
 DATABASE_URL = os.environ['DATABASE_URL']
 JOURNEY_LIMIT = 1000
 METERS_IN_KILOMETER = 1000
 SECONDS_IN_MINUTE = 60
 DECIMAL_ROUND = 5
-MONTH_PARAM = '^\\d(\\d)?-\\d{4}$' # Regular expression describing the form in which the month parameters are passed when fetching station-specific journey calculations
+# Regular expression describing the form in which the month parameters are passed
+# when fetching station-specific journey calculations
+MONTH_PARAM = '^\\d(\\d)?-\\d{4}$'
 ROWS_INSERTED_AT_ONCE = 1000
 
 def allowed_filename(filename):
@@ -70,7 +73,8 @@ def uploadfile(file, header, csv_row2sql_row, validate_row, insertoperation):
 def upload():
     '''A page with a form to upload new data from CSV files to the SQL database.'''
     errors = []
-    if (request.method == 'POST' and (request.files.get('journeys') or request.files.get('stations'))):
+    if (request.method == 'POST' and
+            (request.files.get('journeys') or request.files.get('stations'))):
         con = psycopg2.connect(DATABASE_URL, sslmode='require')
         cur = con.cursor()
         def journey_csv_to_sql(rowdata):
@@ -96,7 +100,7 @@ def upload():
             cur.execute(sql.SQL('''
             INSERT INTO stations(id,nimi,namn,name,address,adress,city,stad,operator,capacity,lat,lon) VALUES {} ON CONFLICT DO NOTHING
             ''').format(sql.SQL(station_str)))
-        if request.files.get('stations') and not uploadfile(request.files.get('stations'), STATION_HEADER, station_csv_to_sql, lambda : True, insert_stations):
+        if request.files.get('stations') and not uploadfile(request.files.get('stations'), STATION_HEADER, station_csv_to_sql, lambda x : True, insert_stations):
             errors.append('The station file is inaccurate')
         con.commit()
         cur.close()
