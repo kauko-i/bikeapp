@@ -95,8 +95,17 @@ def upload():
             )
             # The format function is safe with psycopg2.sql objects:
             # https://www.psycopg.org/docs/sql.html
-            cur.execute(sql.SQL('''INSERT INTO journeys(departure_time,return_time,departure_station,return_station,distance,duration) VALUES {}''').format(sql.SQL(journey_str)))
-        if request.files.get('journeys') and not uploadfile(request.files.get('journeys'), JOURNEY_HEADER, journey_csv_to_sql, lambda row: 10 <= row[4] and 10 <= row[5], insert_journeys):
+            cur.execute(
+                sql.SQL('''INSERT INTO journeys(departure_time,return_time,
+                departure_station,return_station,distance,duration) VALUES {}''')
+                .format(sql.SQL(journey_str)))
+        if (request.files.get('journeys')
+            and not uploadfile(
+                request.files.get('journeys'),
+                JOURNEY_HEADER,
+                journey_csv_to_sql,
+                lambda row: 10 <= row[4] and 10 <= row[5],
+                insert_journeys)):
             errors.append('The journey file is inaccurate')
         def station_csv_to_sql(rowdata):
             try:
@@ -106,11 +115,19 @@ def upload():
             except ValueError:
                 return []
         def insert_stations(rows):
-            station_str = ','.join(cur.mogrify('(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)', station).decode("utf-8") for station in rows)
+            station_str = ','.join(
+                cur.mogrify('(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)', station)
+                    .decode("utf-8") for station in rows)
             cur.execute(sql.SQL('''
             INSERT INTO stations(id,nimi,namn,name,address,adress,city,stad,operator,capacity,lat,lon) VALUES {} ON CONFLICT DO NOTHING
             ''').format(sql.SQL(station_str)))
-        if request.files.get('stations') and not uploadfile(request.files.get('stations'), STATION_HEADER, station_csv_to_sql, lambda x : True, insert_stations):
+        if (request.files.get('stations')
+            and not uploadfile(
+                request.files.get('stations'),
+                STATION_HEADER,
+                station_csv_to_sql,
+                lambda x : True,
+                insert_stations)):
             errors.append('The station file is inaccurate')
         con.commit()
         cur.close()
