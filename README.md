@@ -10,6 +10,35 @@ Every recommended and additional feature except pagination and searching on the 
 
 The app is running at bikeapp-taliso.herokuapp.com, so you only need an Internet connection and a browser for basic testing and usage.
 
+## Initialize database
+
+The app running on Heroku uses a PostgreSQL database hosted on Google Cloud to store the data. The proper credentials have been emailed to Pauliina Hovila. If you can't or don't want to use those, you can create your own database. Creating a PostgreSQL database is up to the OS, but after creating it, you can initialize the proper tables with the following commands in the PostgreSQL command line.
+
+```
+CREATE TABLE journeys(
+    departure_time TIMESTAMP,
+    return_time TIMESTAMP,
+    departure_station VARCHAR(3),
+    return_station VARCHAR(3),
+    distance NUMERIC,
+    duration NUMERIC
+);
+CREATE TABLE stations(
+    id VARCHAR(3),
+    nimi VARCHAR(256),
+    namn VARCHAR(256),
+    name VARCHAR(256),
+    address VARCHAR(256),
+    adress VARCHAR(256),
+    city VARCHAR(256),
+    stad VARCHAR(256),
+    operator VARCHAR(256),
+    capacity INTEGER,
+    lat NUMERIC,
+    lon NUMERIC
+);
+```
+
 ## Run locally on Linux
 
 These commands have been tested on Ubuntu 20.04.
