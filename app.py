@@ -190,9 +190,12 @@ def journeys():
     else:
         rows = rows[:-1]
     # The journey data is transmitted to the template as a list of dicts.
-    row_list = [{'departure_station':str(row[0]),'return_station':str(row[1]),
-    'distance':str(round(float(row[2])/METERS_IN_KILOMETER, DECIMAL_ROUND)),
-    'duration':str(round(float(row[3])/SECONDS_IN_MINUTE, DECIMAL_ROUND))} for row in rows]
+    row_list = [{
+        'departure_station':str(row[0]),
+        'return_station':str(row[1]),
+        'distance':str(round(float(row[2])/METERS_IN_KILOMETER, DECIMAL_ROUND)),
+        'duration':str(round(float(row[3])/SECONDS_IN_MINUTE, DECIMAL_ROUND))} for row in rows
+    ]
     # All URL parameters except page are intended to be sustained,
     # but the page links require that the original page parameter is not repassed.
     query = dict(request.args)
@@ -213,12 +216,14 @@ def journeys():
         querystring=urlencode(query))
 
 @app.route('/stations/')
-# I know idd is not a perfect variable name, but id is an inbuilt function and ID would seem like a global constraint.
+# I know idd is not a perfect variable name,
+# but id is an inbuilt function and ID would seem like a global constraint.
 @app.route('/stations/<idd>/')
 def stations(idd=None):
     '''
-    The same function is used for both the station list and the single station view.
-    If idd is None, the whole list is displayed. Otherwise, a single station view is displayed according to the idd.
+    The same function is used for both the station list
+    and the single station view. If idd is None, the whole list is displayed.
+    Otherwise, a single station view is displayed according to the idd.
     '''
     con = psycopg2.connect(DATABASE_URL, sslmode='require')
     cur = con.cursor()
@@ -227,12 +232,23 @@ def stations(idd=None):
         rows = cur.fetchall()
         cur.close()
         con.close()
-        row_list = [{'id':str(row[0]),'nimi':str(row[1]),'namn':str(row[2]),'name':str(row[3]),'address':str(row[4]),'adress':str(row[5]),
-        'city':str(row[6]),'stad':str(row[7]),'operator':str(row[8]),'capacity':int(row[9]),
-        'lat':round(float(row[10]),DECIMAL_ROUND),'lon':round(float(row[11]),DECIMAL_ROUND)}
-        for row in rows]
+        row_list = [{
+            'id':str(row[0]),
+            'nimi':str(row[1]),
+            'namn':str(row[2]),
+            'name':str(row[3]),
+            'address':str(row[4]),
+            'adress':str(row[5]),
+            'city':str(row[6]),
+            'stad':str(row[7]),
+            'operator':str(row[8]),
+            'capacity':int(row[9]),
+            'lat':round(float(row[10]),DECIMAL_ROUND),
+            'lon':round(float(row[11]),DECIMAL_ROUND)} for row in rows
+        ]
         return render_template('stations.html', stations=row_list)
-    # The user can filter the journeys on which the station-specific calculations are based on by their departure and return months.
+    # The user can filter the journeys on which the station-specific
+    # calculations are based on by their departure and return months.
     # 0 means that all journeys are considered.
     departure = request.args.get('departure')
     departure_year = 0
@@ -259,55 +275,94 @@ def stations(idd=None):
     address = rows[0][1]
     lat = rows[0][2]
     lon = rows[0][3]
-    # Fetch the numbers of journeys starting from and ending to the station, and their average distances.
-    cur.execute('''SELECT COUNT(CASE WHEN journeys.departure_station = %(id)s THEN 1 END), COUNT(CASE WHEN journeys.return_station = %(id)s THEN 1 END),
-    AVG(CASE WHEN journeys.departure_station = %(id)s THEN journeys.distance END), AVG(CASE WHEN journeys.return_station = %(id)s THEN journeys.distance END)
+    # Fetch the numbers of journeys starting from and ending to the station,
+    # and their average distances.
+    query_parameters = {
+        'id': idd,
+        'dmonth': departure_month,
+        'dyear': departure_year,
+        'rmonth': return_month,
+        'ryear': return_year
+    }
+    cur.execute('''SELECT COUNT(CASE WHEN journeys.departure_station = %(id)s THEN 1 END),
+    COUNT(CASE WHEN journeys.return_station = %(id)s THEN 1 END),
+    AVG(CASE WHEN journeys.departure_station = %(id)s THEN journeys.distance END),
+    AVG(CASE WHEN journeys.return_station = %(id)s THEN journeys.distance END)
     FROM journeys
     WHERE (0 = %(dmonth)s OR (EXTRACT(MONTH FROM journeys.departure_time), EXTRACT(YEAR FROM journeys.departure_time)) = (%(dmonth)s,%(dyear)s)) AND
     (0 = %(rmonth)s OR (EXTRACT(MONTH FROM journeys.return_time), EXTRACT(YEAR FROM journeys.return_time)) = (%(rmonth)s,%(ryear)s))
-    ''', {'id': idd, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year})
+    ''', query_parameters)
     rows = cur.fetchall()
     starting = int(rows[0][0])
     ending = int(rows[0][1])
     starting_distance = float(rows[0][2]) if rows[0][2] is not None else float('nan')
     ending_distance = float(rows[0][3]) if rows[0][3] is not None else float('nan')
     # Fetch the most popular return stations for journeys starting from the station.
+    query_parameters = {
+        'id': idd,
+        'dmonth': departure_month,
+        'dyear': departure_year,
+        'rmonth': return_month,
+        'ryear': return_year
+    }
     cur.execute('''SELECT stations.name, COUNT(*) AS n, stations.id
     FROM journeys
     JOIN stations ON stations.id = journeys.return_station
     WHERE departure_station = %(id)s AND
     ((EXTRACT(MONTH FROM departure_time), EXTRACT(YEAR FROM departure_time)) = (%(dmonth)s,%(dyear)s) OR 0 = %(dmonth)s) AND
     ((EXTRACT(MONTH FROM return_time), EXTRACT(YEAR FROM return_time)) = (%(rmonth)s,%(ryear)s) OR 0 = %(rmonth)s)
-    GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''',({'id': idd, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
+    GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''', query_parameters)
     returns = list(map(lambda x: x[0], cur.fetchall()))
     # Fetch the most popular departure stations for journeys ending at the station.
+    query_parameters = {
+        'id': idd,
+        'dmonth': departure_month,
+        'dyear': departure_year,
+        'rmonth': return_month,
+        'ryear': return_year
+    }
     cur.execute('''SELECT stations.name, COUNT(*) AS n, stations.id
     FROM journeys
     JOIN stations ON stations.id = journeys.departure_station
     WHERE return_station = %(id)s AND
     ((EXTRACT(MONTH FROM departure_time), EXTRACT(YEAR FROM departure_time)) = (%(dmonth)s,%(dyear)s) OR 0 = %(dmonth)s) AND
     ((EXTRACT(MONTH FROM return_time), EXTRACT(YEAR FROM return_time)) = (%(rmonth)s,%(ryear)s) OR 0 = %(rmonth)s)
-    GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''',({'id': idd, 'dmonth': departure_month, 'dyear': departure_year, 'rmonth': return_month, 'ryear': return_year}))
+    GROUP BY stations.id, stations.name ORDER BY n DESC LIMIT 5''', query_parameters)
     departures = list(map(lambda x: x[0], cur.fetchall()))
-    # Fetch the departure and return months and years appearing in the journeys related to this station.
-    # It may seem useless to fetch these on every request, but shouldn't the database be the ultimate source of truth?
-    cur.execute('''SELECT EXTRACT(MONTH FROM departure_time) AS departure_month, EXTRACT(YEAR FROM departure_time) AS departure_year
-    FROM journeys
-    WHERE departure_station = %s
-    GROUP BY (departure_year, departure_month)''',(idd,))
+    # Fetch the departure and return months and
+    # years appearing in the journeys related to this station.
+    # It may seem useless to fetch these on every request,
+    # but shouldn't the database be the ultimate source of truth?
+    cur.execute('''
+        SELECT EXTRACT(MONTH FROM departure_time) AS departure_month, EXTRACT(YEAR FROM departure_time) AS departure_year
+        FROM journeys
+        WHERE departure_station = %s
+        GROUP BY (departure_year, departure_month)''',(idd,))
     departure_months = cur.fetchall()
-    cur.execute('''SELECT EXTRACT(MONTH FROM return_time) AS return_month, EXTRACT(YEAR FROM return_time) AS return_year
-    FROM journeys
-    WHERE return_station = %s
-    GROUP BY (return_year, return_month)''',(idd,))
+    cur.execute('''
+        SELECT EXTRACT(MONTH FROM return_time) AS return_month, EXTRACT(YEAR FROM return_time) AS return_year
+        FROM journeys
+        WHERE return_station = %s
+        GROUP BY (return_year, return_month)''',(idd,))
     return_months = cur.fetchall()
     cur.close()
     con.close()
-    return render_template('station.html',name=name, address=address, starting=starting, ending=ending,
-    starting_distance=round(starting_distance/METERS_IN_KILOMETER, DECIMAL_ROUND), ending_distance=round(ending_distance/METERS_IN_KILOMETER, DECIMAL_ROUND),
-    returns=returns, departures=departures, lat=lat, lon=lon, departuremonths=list(map(lambda x: f'{x[0]}-{x[1]}', departure_months)),
-    returnmonths=list(map(lambda x: f'{x[0]}-{x[1]}', return_months)), departure=departure if departure is not None else 'anytime',
-    return_t=return_t if return_t is not None else 'anytime')
+    return render_template(
+        'station.html',
+        name=name,
+        address=address,
+        starting=starting,
+        ending=ending,
+        starting_distance=round(starting_distance/METERS_IN_KILOMETER, DECIMAL_ROUND),
+        ending_distance=round(ending_distance/METERS_IN_KILOMETER, DECIMAL_ROUND),
+        returns=returns,
+        departures=departures,
+        lat=lat,
+        lon=lon,
+        departuremonths=list(map(lambda x: f'{x[0]}-{x[1]}', departure_months)),
+        returnmonths=list(map(lambda x: f'{x[0]}-{x[1]}', return_months)),
+        departure=departure if departure is not None else 'anytime',
+        return_t=return_t if return_t is not None else 'anytime')
 
 @app.route('/')
 def index():
