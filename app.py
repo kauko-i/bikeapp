@@ -17,8 +17,6 @@ JOURNEY_LIMIT = 1000
 METERS_IN_KILOMETER = 1000
 SECONDS_IN_MINUTE = 60
 DECIMAL_ROUND = 5
-JOURNEY_MIN_DURATION = 10
-JOURNEY_MIN_DISTANCE = 10
 MONTH_PARAM = '^\\d(\\d)?-\\d{4}$' # Regular expression describing the form in which the month parameters are passed when fetching station-specific journey calculations
 ROWS_INSERTED_AT_ONCE = 1000
 
@@ -107,7 +105,8 @@ def upload():
 
 @app.route('/journeys/')
 def journeys():
-    # Read the URL parameters and set the default values if not passed.
+    '''The journey list view: filtering and ordering is implemented with URL parameters.
+    If not passed, set the values meaning "not specified".'''
     page = request.args.get('page')
     page = 0 if not page else int(page)
     departure = request.args.get('departure')
@@ -193,14 +192,14 @@ def stations(idd=None):
     departure = request.args.get('departure')
     departure_year = 0
     departure_month = 0
-    if departure != None and re.match(MONTH_PARAM, departure):
+    if departure is not None and re.match(MONTH_PARAM, departure):
         departure_split = departure.split('-')
         departure_year = int(departure_split[1])
         departure_month = int(departure_split[0])
     return_t = request.args.get('return')
     return_year = 0
     return_month = 0
-    if return_t != None and re.match(MONTH_PARAM, return_t):
+    if return_t is not None and re.match(MONTH_PARAM, return_t):
         return_split = return_t.split('-')
         return_year = int(return_split[1])
         return_month = int(return_split[0])
@@ -210,7 +209,7 @@ def stations(idd=None):
     WHERE stations.id = %s''',(idd,))
     rows = cur.fetchall()
     if len(rows) == 0:
-        return Response('No station found with id %s' % idd)
+        return Response(f'No station found with id {idd}')
     name = rows[0][0]
     address = rows[0][1]
     lat = rows[0][2]
@@ -225,8 +224,8 @@ def stations(idd=None):
     rows = cur.fetchall()
     starting = int(rows[0][0])
     ending = int(rows[0][1])
-    starting_distance = float(rows[0][2]) if rows[0][2] != None else float('nan')
-    ending_distance = float(rows[0][3]) if rows[0][3] != None else float('nan')
+    starting_distance = float(rows[0][2]) if rows[0][2] is not None else float('nan')
+    ending_distance = float(rows[0][3]) if rows[0][3] is not None else float('nan')
     # Fetch the most popular return stations for journeys starting from the station.
     cur.execute('''SELECT stations.name, COUNT(*) AS n, stations.id
     FROM journeys
@@ -261,12 +260,13 @@ def stations(idd=None):
     con.close()
     return render_template('station.html',name=name, address=address, starting=starting, ending=ending,
     starting_distance=round(starting_distance/METERS_IN_KILOMETER, DECIMAL_ROUND), ending_distance=round(ending_distance/METERS_IN_KILOMETER, DECIMAL_ROUND),
-    returns=returns, departures=departures, lat=lat, lon=lon, departuremonths=list(map(lambda x: '{}-{}'.format(x[0],x[1]), departure_months)),
-    returnmonths=list(map(lambda x: '{}-{}'.format(x[0],x[1]), return_months)), departure=departure if departure != None else 'anytime',
-    return_t=return_t if return_t != None else 'anytime')
+    returns=returns, departures=departures, lat=lat, lon=lon, departuremonths=list(map(lambda x: f'{x[0]}-{x[1]}', departure_months)),
+    returnmonths=list(map(lambda x: f'{x[0]}-{x[1]}', return_months)), departure=departure if departure is not None else 'anytime',
+    return_t=return_t if return_t is not None else 'anytime')
 
 @app.route('/')
 def index():
+    '''The front page has no interactivity.'''
     return render_template('index.html')
 
 if __name__ == '__main__':

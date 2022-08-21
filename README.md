@@ -1,4 +1,4 @@
-> **This repository has received some improvements after the deadline – they're not affecting the actual functionalities of the app, but improving the README and Docker instructions.**
+> **This repository has received some improvements after the deadline – they're not affecting the actual functionalities of the app, but improving the README and Docker instructions and cleaning the code.**
 > **The deadline version of this repository is:** https://github.com/kauko-i/bikeapp/tree/533270e2372ffc5484643c63e4b0013c67185829
 
 # bikeapp
