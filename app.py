@@ -75,7 +75,7 @@ def upload():
     errors = []
     if (request.method == 'POST' and
             (request.files.get('journeys') or request.files.get('stations'))):
-        con = psycopg2.connect(DATABASE_URL, sslmode='require')
+        con = psycopg2.connect(DATABASE_URL)
         cur = con.cursor()
         def journey_csv_to_sql(rowdata):
             try:
@@ -162,7 +162,7 @@ def journeys():
         order_params.insert(0, primary_order)
     direction = request.args.get('direction')
     direction = '' if not direction else direction
-    con = psycopg2.connect(DATABASE_URL, sslmode='require')
+    con = psycopg2.connect(DATABASE_URL)
     cur = con.cursor()
     # Query journeys from the database according to the URL parameters.
     cur.execute(sql.SQL('''SELECT departures.name, returns.name, distance, duration
@@ -225,7 +225,7 @@ def stations(idd=None):
     and the single station view. If idd is None, the whole list is displayed.
     Otherwise, a single station view is displayed according to the idd.
     '''
-    con = psycopg2.connect(DATABASE_URL, sslmode='require')
+    con = psycopg2.connect(DATABASE_URL)
     cur = con.cursor()
     if not idd:
         cur.execute('SELECT * FROM stations')

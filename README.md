@@ -32,6 +32,19 @@ CREATE TABLE stations(
 );
 ```
 
+You need to use the `/upload` page to populate the database with journey and station data, whether you run the app in Docker or the `python3-venv` virtual environment. The following CSV files are in the format the form on the page is intended for.
+
+The journey data is here, and is owned by City Bike Finland.
+
+* <https://dev.hsl.fi/citybikes/od-trips-2021/2021-05.csv>
+* <https://dev.hsl.fi/citybikes/od-trips-2021/2021-06.csv>
+* <https://dev.hsl.fi/citybikes/od-trips-2021/2021-07.csv>
+
+The station data is here:
+
+* Dataset: <https://opendata.arcgis.com/datasets/726277c507ef4914b0aec3cbcfcbfafc_0.csv>
+* License and information: <https://www.avoindata.fi/data/en/dataset/hsl-n-kaupunkipyoraasemat/resource/a23eef3a-cc40-4608-8aa2-c730d17e8902>
+
 ## Run locally on Linux
 
 These commands have been tested on Ubuntu 20.04 and Ubuntu 22.04.
@@ -52,12 +65,11 @@ To deactivate the virtual environment, run `deactivate`.
 
 ## Run locally in Docker
 
-These commands have been tested on Ubuntu 20.04 and Ubuntu 22.04. Given that Docker has been installed, in the root directory of this app, run:
+This command has been tested on Ubuntu 22.04. Given that Docker has been installed, in the root directory of this app, run:
 ```
-docker build -t bikeapp .
-docker run -p 5000:5000 --env DATABASE_URL=[INSERT YOUR DATABASE URL] --net="host" bikeapp
+docker-compose up
 ```
-The `--net="host"` argument is unnecessary if you connect to a remote database. Now, the app should be running on localhost:5000.
+Now, the app should be running on localhost:5000.
 
 ## About the personal choices with this assignment
 
@@ -68,7 +80,7 @@ The `--net="host"` argument is unnecessary if you connect to a remote database. 
 * Leaflet to display a map on the single station view
 
 I considered using Node and TypeScript as well to create the backend services as the language has become familiar at BirdLife.
-However, Flask is the backend service framework I’m most familiar with. I've created another app, saastaruoassa (published on GitHub and Heroku cloud service as well) with that.
+However, Flask is the backend service framework I’m most familiar with. I've created another app, saastaruoassa (published on GitHub and Heroku cloud service) with that.
 
 I thought proper database usage is the most important aspect of the assignment as there are millions of journeys.
 The structure of the CSV files seems so regular that SQL seems the self-evident choice for hosting the data.
