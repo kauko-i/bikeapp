@@ -135,11 +135,11 @@ def upload():
     return render_template('upload.html', errors=errors)
 
 @app.route('/journeys/')
-def journeys():
+@app.route('/journeys/<page>')
+def journeys(page=0):
     '''The journey list view: filtering and ordering is implemented with URL parameters.
     If not passed, set the values meaning "not specified".'''
-    page = request.args.get('page')
-    page = 0 if not page else int(page)
+    page = int(page)
     departure = request.args.get('departure')
     departure = '' if not departure else departure
     arrival = request.args.get('return')
